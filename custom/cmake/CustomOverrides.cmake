@@ -1,0 +1,6 @@
+set(QGC_APP_NAME "QGroundControl-UA" CACHE STRING "App Name" FORCE)
+set(QGC_APP_DESCRIPTION "Українська наземна станція керування" CACHE STRING "Description" FORCE)
+set(QGC_ORG_NAME "STREAM-TECHNO" CACHE STRING "Org Name" FORCE)
+set(QGC_ORG_DOMAIN "stream-techno.local" CACHE STRING "Domain" FORCE)
+set(QGC_PACKAGE_NAME "ua.streamtechno.qgroundcontrol" CACHE STRING "Package Name" FORCE)
+set(QGC_SETTINGS_VERSION "901" CACHE STRING "Settings Version" FORCE)
