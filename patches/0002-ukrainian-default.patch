@@ -1,0 +1,26 @@
+diff --git a/src/Settings/AppSettings.cc b/src/Settings/AppSettings.cc
+index fd93af4..96255d1 100644
+--- a/src/Settings/AppSettings.cc
++++ b/src/Settings/AppSettings.cc
+@@ -59,7 +59,8 @@ AppSettings::LanguageInfo_t AppSettings::_rgLanguageInfo[] = {
+     { QLocale::Russian,         "Pусский (Russian)" },
+     { QLocale::Spanish,         "Español (Spanish)" },
+     { QLocale::Swedish,         "Svenska (Swedish)" },
+-    { QLocale::Turkish,         "Türk (Turkish)" }
++    { QLocale::Turkish,         "Türk (Turkish)" },
++    { QLocale::Ukrainian,       "Українська (Ukrainian)" }
+ };
+ 
+ DECLARE_SETTINGGROUP(App, "")
+@@ -370,6 +371,11 @@ QLocale::Language AppSettings::_qLocaleLanguageEarlyAccess(void)
+ {
+     QSettings settings;
+ 
++    if (!settings.contains(qLocaleLanguageName)) {
++        settings.setValue(qLocaleLanguageName, QLocale::Ukrainian);
++        return QLocale::Ukrainian;
++    }
++
+     // Note that the AppSettings group has no group name
+     QLocale::Language localeLanguage = static_cast<QLocale::Language>(settings.value(qLocaleLanguageName).toInt());
+     for (auto& languageInfo: _rgLanguageInfo) {
