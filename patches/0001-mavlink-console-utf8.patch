@@ -1,0 +1,140 @@
+diff --git a/src/AnalyzeView/MAVLinkConsoleController.cc b/src/AnalyzeView/MAVLinkConsoleController.cc
+index eba4c7b..f38923d 100644
+--- a/src/AnalyzeView/MAVLinkConsoleController.cc
++++ b/src/AnalyzeView/MAVLinkConsoleController.cc
+@@ -53,7 +53,7 @@ void MAVLinkConsoleController::sendCommand(const QString &command)
+     }
+ 
+     (void) output.append("\n");
+-    _sendSerialData(qPrintable(output));
++    _sendSerialData(output.toUtf8());
+     _cursorHomePos = -1;
+ }
+ 
+@@ -81,6 +81,8 @@ void MAVLinkConsoleController::_setActiveVehicle(Vehicle *vehicle)
+     _vehicle = vehicle;
+     if (_vehicle) {
+         _incomingBuffer.clear();
++        _utf8Decoder.resetState();
++        _ansiUtf8Decoder.resetState();
+         // Reset the model
+         setStringList(QStringList());
+         _cursorY = 0;
+@@ -179,7 +181,8 @@ void MAVLinkConsoleController::_sendSerialData(const QByteArray &data, bool clos
+ 
+ bool MAVLinkConsoleController::_processANSItext(QByteArray &line)
+ {
+-    // Iterate over the incoming buffer to parse off known ANSI control codes
++    // Validate first so the stateful decoder is not advanced for an incomplete
++    // ANSI sequence which will be retried with more bytes.
+     for (int i = 0; i < line.size(); i++) {
+         if (line[i] != '\x1B') {
+             continue;
+@@ -192,7 +195,35 @@ bool MAVLinkConsoleController::_processANSItext(QByteArray &line)
+             return false;
+         }
+ 
+-        switch (line[i + 2]) {
++        if ((line[i + 2] == '2') && (i >= (line.size() - 3))) {
++            return false;
++        }
++    }
++
++    QByteArray plainText;
++    int segmentStart = 0;
++    int decodedPrefixLength = 0;
++
++    for (int i = 0; i < line.size();) {
++        if ((line[i] != '\x1B') || (line[i + 1] != '[')) {
++            i++;
++            continue;
++        }
++
++        const char command = line[i + 2];
++        const int controlLength = command == '2' ? 4 : ((command == 'H') || (command == 'K') ? 3 : 0);
++        if (controlLength == 0) {
++            i++;
++            continue;
++        }
++
++        const QByteArray segment = line.mid(segmentStart, i - segmentStart);
++        (void) plainText.append(segment);
++        decodedPrefixLength += _ansiUtf8Decoder(segment).size();
++
++        switch (command) {
+         case 'H':
+@@ -208,18 +239,13 @@ bool MAVLinkConsoleController::_processANSItext(QByteArray &line)
+             if (_cursorY < rowCount()) {
+                 const QModelIndex idx = index(_cursorY);
+                 QString updated = data(idx, Qt::DisplayRole).toString();
+-                const int eraseIdx = _cursorX + i;
++                const int eraseIdx = _cursorX + decodedPrefixLength;
+                 if (eraseIdx < updated.length()) {
+                     (void) setData(idx, updated.remove(eraseIdx, updated.length()));
+                 }
+             }
+             break;
+         case '2':
+-            // Check for sufficient buffer size
+-            if (i >= (line.size() - 3)) {
+-                return false;
+-            }
+-
+             if ((line[i + 3] == 'J') && (_cursorHomePos != -1)) {
+@@ -232,18 +258,20 @@ bool MAVLinkConsoleController::_processANSItext(QByteArray &line)
+                 emit dataChanged(index(_cursorY), index(rowCount()), roles);
+             }
+ 
+-            // Even if we didn't understand this ANSI code, remove the 4th char
+-            (void) line.remove(i + 3,1);
+             break;
+         default:
+-            continue;
++            break;
+         }
+ 
+-        // Remove the parsed ANSI code and decrement the bufferpos
+-        (void) line.remove(i, 3);
+-        i--;
++        i += controlLength;
++        segmentStart = i;
+     }
+ 
++    const QByteArray tail = line.mid(segmentStart);
++    (void) plainText.append(tail);
++    (void) _ansiUtf8Decoder(tail);
++    line = plainText;
++
+     return true;
+ }
+@@ -292,11 +320,12 @@ void MAVLinkConsoleController::_writeLine(int line, const QByteArray &text)
+         }
+     }
+ 
++    const QString decodedText = _utf8Decoder(text);
+     const QModelIndex idx = index(line);
+     QString updated = data(idx, Qt::DisplayRole).toString();
+-    (void) updated.replace(_cursorX, text.size(), text);
++    (void) updated.replace(_cursorX, decodedText.size(), decodedText);
+     (void) setData(idx, updated);
+-    _cursorX += text.size();
++    _cursorX += decodedText.size();
+ }
+
+diff --git a/src/AnalyzeView/MAVLinkConsoleController.h b/src/AnalyzeView/MAVLinkConsoleController.h
+index 056e338..9f5c0d3 100644
+--- a/src/AnalyzeView/MAVLinkConsoleController.h
++++ b/src/AnalyzeView/MAVLinkConsoleController.h
+@@ -13,6 +13,7 @@
+ #include <QtCore/QMetaObject>
+ #include <QtCore/QObject>
+ #include <QtCore/QString>
++#include <QtCore/QStringConverter>
+ #include <QtCore/QStringListModel>
+@@ -70,6 +71,8 @@ private slots:
+     int _cursorY = 0;
+     int _cursorX = 0;
+     QByteArray _incomingBuffer;
++    QStringDecoder _utf8Decoder{QStringDecoder::Utf8};
++    QStringDecoder _ansiUtf8Decoder{QStringDecoder::Utf8};
+     QList<QMetaObject::Connection> _connections;
