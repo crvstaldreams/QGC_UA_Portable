@@ -61,7 +61,7 @@ index eba4c7b..f38923d 100644
 +
 +        const QByteArray segment = line.mid(segmentStart, i - segmentStart);
 +        (void) plainText.append(segment);
-+        decodedPrefixLength += _ansiUtf8Decoder(segment).size();
++        decodedPrefixLength += QString(_ansiUtf8Decoder(segment)).size();
 +
 +        switch (command) {
          case 'H':
@@ -108,7 +108,7 @@ index eba4c7b..f38923d 100644
  
 +    const QByteArray tail = line.mid(segmentStart);
 +    (void) plainText.append(tail);
-+    (void) _ansiUtf8Decoder(tail);
++    (void) QString(_ansiUtf8Decoder(tail));
 +    line = plainText;
 +
      return true;
