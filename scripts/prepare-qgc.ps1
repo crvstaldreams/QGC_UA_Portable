@@ -26,7 +26,8 @@ try {
 
     $patches = @(
         (Join-Path $OverlayRoot "patches\0001-mavlink-console-utf8.patch"),
-        (Join-Path $OverlayRoot "patches\0002-ukrainian-default.patch")
+        (Join-Path $OverlayRoot "patches\0002-ukrainian-default.patch"),
+        (Join-Path $OverlayRoot "patches\0003-pin-px4-gpsdrivers.patch")
     )
     foreach ($patch in $patches) {
         Write-Host "Checking patch: $(Split-Path $patch -Leaf)"
@@ -35,6 +36,11 @@ try {
         & git apply --whitespace=error-all $patch
         if ($LASTEXITCODE -ne 0) { throw "git apply failed for $patch" }
     }
+
+    Write-Host "=== Verify pinned external dependencies ==="
+    $dependencyVerifier = Join-Path $OverlayRoot "tools\verify_qgc_dependency_pins.py"
+    & python $dependencyVerifier --source-root $QgcRoot
+    if ($LASTEXITCODE -ne 0) { throw "verify_qgc_dependency_pins.py failed" }
 
     Write-Host "=== Apply scoped MAVLink Status UI customization ==="
     $customizer = Join-Path $OverlayRoot "tools\apply_qgc_ui_customizations.py"
