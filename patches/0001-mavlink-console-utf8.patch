@@ -44,6 +44,8 @@ index eba4c7b..f38923d 100644
 +    int segmentStart = 0;
 +    int decodedPrefixLength = 0;
 +
++    // Remove known ANSI sequences while a second stateful decoder tracks the
++    // exact QString position of text preceding each control sequence.
 +    for (int i = 0; i < line.size();) {
 +        if ((line[i] != '\x1B') || (line[i + 1] != '[')) {
 +            i++;
@@ -63,6 +65,8 @@ index eba4c7b..f38923d 100644
 +
 +        switch (command) {
          case 'H':
+             if (_cursorHomePos == -1) {
+                 // Assign new home position if home is unset
 @@ -208,18 +239,13 @@ bool MAVLinkConsoleController::_processANSItext(QByteArray &line)
              if (_cursorY < rowCount()) {
                  const QModelIndex idx = index(_cursorY);
@@ -81,6 +85,8 @@ index eba4c7b..f38923d 100644
 -            }
 -
              if ((line[i + 3] == 'J') && (_cursorHomePos != -1)) {
+                 // Erase everything and rewind to home
+                 const bool blocked = blockSignals(true);
 @@ -232,18 +258,20 @@ bool MAVLinkConsoleController::_processANSItext(QByteArray &line)
                  emit dataChanged(index(_cursorY), index(rowCount()), roles);
              }
@@ -107,6 +113,7 @@ index eba4c7b..f38923d 100644
 +
      return true;
  }
+ 
 @@ -292,11 +320,12 @@ void MAVLinkConsoleController::_writeLine(int line, const QByteArray &text)
          }
      }
@@ -120,7 +127,8 @@ index eba4c7b..f38923d 100644
 -    _cursorX += text.size();
 +    _cursorX += decodedText.size();
  }
-
+ 
+ void MAVLinkConsoleController::CommandHistory::append(const QString &command)
 diff --git a/src/AnalyzeView/MAVLinkConsoleController.h b/src/AnalyzeView/MAVLinkConsoleController.h
 index 056e338..9f5c0d3 100644
 --- a/src/AnalyzeView/MAVLinkConsoleController.h
@@ -131,6 +139,8 @@ index 056e338..9f5c0d3 100644
  #include <QtCore/QString>
 +#include <QtCore/QStringConverter>
  #include <QtCore/QStringListModel>
+ #include <QtQmlIntegration/QtQmlIntegration>
+ 
 @@ -70,6 +71,8 @@ private slots:
      int _cursorY = 0;
      int _cursorX = 0;
@@ -138,3 +148,5 @@ index 056e338..9f5c0d3 100644
 +    QStringDecoder _utf8Decoder{QStringDecoder::Utf8};
 +    QStringDecoder _ansiUtf8Decoder{QStringDecoder::Utf8};
      QList<QMetaObject::Connection> _connections;
+     CommandHistory _history;
+     Vehicle *_vehicle = nullptr;
