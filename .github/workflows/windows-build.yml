@@ -28,7 +28,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 180
     env:
-      BUILD_DIR: ${{ runner.temp }}\qgc-ua-build
+      BUILD_DIR: ${{ github.workspace }}\build
       QGC_DIR: ${{ github.workspace }}\qgroundcontrol
       ARTIFACT_DIR: ${{ github.workspace }}\artifacts
 
