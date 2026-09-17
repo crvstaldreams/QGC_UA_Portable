@@ -1,0 +1,189 @@
+name: Build QGroundControl UA for Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, master ]
+    paths:
+      - '.github/workflows/windows-build.yml'
+      - 'scripts/**'
+      - 'tools/**'
+      - 'patches/**'
+      - 'custom/**'
+
+concurrency:
+  group: qgc-ua-windows-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  QGC_COMMIT: e0816c957602789200ae5ba0af45217f0f2f1db4
+  QT_VERSION: 6.8.3
+  GST_VERSION: 1.22.12
+jobs:
+  build-windows:
+    name: Windows x64 Release
+    runs-on: windows-latest
+    timeout-minutes: 180
+    env:
+      BUILD_DIR: ${{ runner.temp }}\qgc-ua-build
+      QGC_DIR: ${{ github.workspace }}\qgroundcontrol
+      ARTIFACT_DIR: ${{ github.workspace }}\artifacts
+
+    steps:
+      - name: Checkout CI overlay repository
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned QGroundControl v5.0.8
+        uses: actions/checkout@v4
+        with:
+          repository: mavlink/qgroundcontrol
+          ref: e0816c957602789200ae5ba0af45217f0f2f1db4
+          path: qgroundcontrol
+          submodules: recursive
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Prepare QGC UA source tree
+        shell: pwsh
+        run: >-
+          ./scripts/prepare-qgc.ps1
+          -QgcRoot "${{ env.QGC_DIR }}"
+          -OverlayRoot "${{ github.workspace }}"
+          -ExpectedCommit "${{ env.QGC_COMMIT }}"
+
+      - name: Install Vulkan SDK
+        shell: pwsh
+        working-directory: ${{ runner.temp }}
+        run: |
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe" -OutFile vulkan-sdk.exe
+          .\vulkan-sdk.exe --root C:\VulkanSDK\latest --accept-licenses --default-answer --confirm-command install com.lunarg.vulkan.glm com.lunarg.vulkan.volk com.lunarg.vulkan.vma com.lunarg.vulkan.debug
+          "VULKAN_SDK=C:\VulkanSDK\latest" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install GStreamer
+        uses: blinemedical/setup-gstreamer@v1
+        with:
+          version: ${{ env.GST_VERSION }}
+
+      - name: Install NSIS
+        shell: pwsh
+        run: choco install nsis -y --no-progress
+
+      - name: Install Qt 6.8.3 for MSVC 2022 x64
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: ${{ env.QT_VERSION }}
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          dir: ${{ runner.temp }}
+          modules: qtcharts qtlocation qtpositioning qtspeech qt5compat qtmultimedia qtserialport qtimageformats qtshadertools qtconnectivity qtquick3d qtsensors
+          cache: true
+
+      - name: Set up Visual Studio 2022 shell
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Configure Release build
+        shell: cmd
+        run: >-
+          "${{ env.QT_ROOT_DIR }}\bin\qt-cmake.bat"
+          -S "${{ env.QGC_DIR }}"
+          -B "${{ env.BUILD_DIR }}"
+          -G Ninja
+          -DCMAKE_BUILD_TYPE=Release
+          -DQGC_STABLE_BUILD=ON
+          -DQGC_UA_LICENSE_DIR="${{ env.QGC_DIR }}\custom\licenses\third-party"
+
+      - name: Build Release
+        shell: cmd
+        run: cmake --build "${{ env.BUILD_DIR }}" --target all --config Release
+
+      - name: Sanity check QGroundControl-UA executable
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:BUILD_DIR "Release\QGroundControl-UA.exe"
+          if (-not (Test-Path $exe)) { throw "Expected executable missing: $exe" }
+          & $exe --simple-boot-test
+          if ($LASTEXITCODE -ne 0) { throw "QGroundControl-UA.exe --simple-boot-test failed: $LASTEXITCODE" }
+
+      - name: Create staging tree and Windows installer
+        shell: cmd
+        run: cmake --install "${{ env.BUILD_DIR }}" --config Release
+
+      - name: Package installer and portable build
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path $env:ARTIFACT_DIR | Out-Null
+
+          $expectedInstaller = Join-Path $env:BUILD_DIR "QGroundControl-UA-installer.exe"
+          if (-not (Test-Path $expectedInstaller)) {
+              $candidate = Get-ChildItem -Path $env:BUILD_DIR -Recurse -File -Filter "*installer*.exe" | Sort-Object Length -Descending | Select-Object -First 1
+              if (-not $candidate) { throw "Windows installer was not generated" }
+              $expectedInstaller = $candidate.FullName
+          }
+          Copy-Item $expectedInstaller (Join-Path $env:ARTIFACT_DIR "QGroundControl-UA-installer.exe") -Force
+
+          $staging = Join-Path $env:BUILD_DIR "staging"
+          if (-not (Test-Path $staging)) { throw "Staging directory missing: $staging" }
+          $portable = Join-Path $env:ARTIFACT_DIR "QGroundControl-UA-portable.zip"
+          Compress-Archive -Path (Join-Path $staging '*') -DestinationPath $portable -CompressionLevel Optimal -Force
+
+          $installerOut = Join-Path $env:ARTIFACT_DIR "QGroundControl-UA-installer.exe"
+          $hashes = @(
+              "$( (Get-FileHash $installerOut -Algorithm SHA256).Hash.ToLower() )  QGroundControl-UA-installer.exe",
+              "$( (Get-FileHash $portable -Algorithm SHA256).Hash.ToLower() )  QGroundControl-UA-portable.zip"
+          )
+          $hashes | Set-Content -Path (Join-Path $env:ARTIFACT_DIR "SHA256SUMS.txt") -Encoding ascii
+
+          @(
+              "QGC upstream tag: v5.0.8",
+              "QGC upstream commit: $env:QGC_COMMIT",
+              "Qt: $env:QT_VERSION",
+              "GStreamer: $env:GST_VERSION",
+              "Runner: $env:RUNNER_OS $env:RUNNER_ARCH",
+              "GitHub run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
+          ) | Set-Content -Path (Join-Path $env:ARTIFACT_DIR "build-metadata.txt") -Encoding utf8
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: QGroundControl-UA-Windows
+          path: |
+            artifacts/QGroundControl-UA-installer.exe
+            artifacts/QGroundControl-UA-portable.zip
+            artifacts/SHA256SUMS.txt
+            artifacts/build-metadata.txt
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Collect diagnostic logs
+        if: always()
+        shell: pwsh
+        run: |
+          $logDir = Join-Path $env:GITHUB_WORKSPACE "ci-logs"
+          New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+          if (Test-Path $env:BUILD_DIR) {
+              Get-ChildItem -Path $env:BUILD_DIR -Recurse -File -Include "CMakeCache.txt","CMakeConfigureLog.yaml","*.log" -ErrorAction SilentlyContinue |
+                ForEach-Object {
+                    $safe = ($_.FullName.Substring($env:BUILD_DIR.Length).TrimStart('\') -replace '[\\/:*?"<>|]', '_')
+                    Copy-Item $_.FullName (Join-Path $logDir $safe) -Force -ErrorAction SilentlyContinue
+                }
+          }
+          git -C $env:QGC_DIR status --short | Set-Content -Path (Join-Path $logDir "qgc-git-status.txt") -Encoding utf8
+
+      - name: Upload CI logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: QGroundControl-UA-logs
+          path: ci-logs/
+          if-no-files-found: ignore
+          retention-days: 14
