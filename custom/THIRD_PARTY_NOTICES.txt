@@ -1,0 +1,3 @@
+QGroundControl-UA custom build overlay.
+
+This build is based on QGroundControl and uses Qt and GStreamer. Upstream licenses remain applicable. See the bundled third-party license directory in the generated package.
