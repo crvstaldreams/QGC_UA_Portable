@@ -103,8 +103,16 @@ jobs:
           -DQGC_UA_LICENSE_DIR="${{ env.QGC_DIR }}\custom\licenses\third-party"
 
       - name: Build Release
-        shell: cmd
-        run: cmake --build "${{ env.BUILD_DIR }}" --target all --config Release
+        shell: pwsh
+        run: |
+          $log = Join-Path $env:GITHUB_WORKSPACE "build-output.log"
+          & cmake --build "$env:BUILD_DIR" --target all --config Release *> $log
+          $exitCode = $LASTEXITCODE
+          Get-Content -Path $log
+          if ($exitCode -ne 0) {
+              Write-Error "Build failed with exit code $exitCode. Full compiler output saved to $log"
+              exit $exitCode
+          }
 
       - name: Sanity check QGroundControl-UA executable
         shell: pwsh
@@ -170,6 +178,10 @@ jobs:
         run: |
           $logDir = Join-Path $env:GITHUB_WORKSPACE "ci-logs"
           New-Item -ItemType Directory -Force -Path $logDir | Out-Null
+          $buildOutput = Join-Path $env:GITHUB_WORKSPACE "build-output.log"
+          if (Test-Path $buildOutput) {
+              Copy-Item $buildOutput (Join-Path $logDir "build-output.log") -Force
+          }
           if (Test-Path $env:BUILD_DIR) {
               Get-ChildItem -Path $env:BUILD_DIR -Recurse -File -Include "CMakeCache.txt","CMakeConfigureLog.yaml","*.log" -ErrorAction SilentlyContinue |
                 ForEach-Object {
