@@ -70,6 +70,10 @@ Rectangle {
         currentPage = "sensors"
     }
 
+    function showServoSafety() {
+        currentPage = "servoSafety"
+    }
+
     function reconnectVehicle() {
         if (activeVehicle) {
             activeVehicle.rebootVehicle()
@@ -99,6 +103,9 @@ Rectangle {
         if (currentPage === "sensors") {
             return sensorComponent ? sensorComponent.setupSource : ""
         }
+        if (currentPage === "servoSafety") {
+            return parametersReady ? "qrc:/qml/QGroundControl/Custom/ServiceServoSafety.qml" : ""
+        }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
         }
@@ -113,6 +120,9 @@ Rectangle {
             return activeVehicle
                     ? "Для цього борту не знайдено сторінку налаштування датчиків."
                     : "Підключіть борт, щоб відкрити налаштування датчиків."
+        }
+        if (currentPage === "servoSafety") {
+            return "Підключіть борт і дочекайтеся завантаження параметрів."
         }
         if (currentPage === "summary") {
             return "Підключіть борт, щоб відкрити огляд."
@@ -183,6 +193,14 @@ Rectangle {
 
                 QGCButton {
                     Layout.fillWidth: true
+                    text: "Servo/Saf.Mask"
+                    checked: currentPage === "servoSafety"
+                    enabled: parametersReady
+                    onClicked: showServoSafety()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
                     text: "Реконнект"
                     enabled: !!activeVehicle
                     onClicked: reconnectVehicle()
@@ -194,7 +212,7 @@ Rectangle {
 
                 QGCLabel {
                     Layout.fillWidth: true
-                    text: "Сервісний режим: огляд стану, прошивка, параметри та датчики без зайвих сторінок налаштування."
+                    text: "Сервісний режим: огляд, прошивка, параметри, датчики, Servo/Saf.Mask та перезавантаження борту."
                     wrapMode: Text.WordWrap
                     font.pointSize: ScreenTools.smallFontPointSize
                     color: qgcPal.text
