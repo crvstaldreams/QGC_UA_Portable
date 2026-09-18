@@ -24,6 +24,21 @@ try {
     if (Test-Path $customDestination) { Remove-Item $customDestination -Recurse -Force }
     Copy-Item (Join-Path $OverlayRoot "custom") $customDestination -Recurse -Force
 
+
+    Write-Host "=== Download bundled Play font ==="
+    $fontDir = Join-Path $customDestination "resources"
+    New-Item -ItemType Directory -Force -Path $fontDir | Out-Null
+    $playRegular = Join-Path $fontDir "Play-Regular.ttf"
+    $playBold = Join-Path $fontDir "Play-Bold.ttf"
+    $playLicense = Join-Path $customDestination "licenses\third-party\Play-OFL.txt"
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/main/ofl/play/Play-Regular.ttf" -OutFile $playRegular
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/main/ofl/play/Play-Bold.ttf" -OutFile $playBold
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/google/fonts/main/ofl/play/OFL.txt" -OutFile $playLicense
+    foreach ($fontFile in @($playRegular, $playBold)) {
+        if (-not (Test-Path $fontFile -PathType Leaf)) { throw "Play font missing: $fontFile" }
+        if ((Get-Item $fontFile).Length -lt 10000) { throw "Play font download looks invalid: $fontFile" }
+    }
+
     $patches = @(
         (Join-Path $OverlayRoot "patches\0001-mavlink-console-utf8.patch"),
         (Join-Path $OverlayRoot "patches\0002-ukrainian-default.patch"),
@@ -42,10 +57,22 @@ try {
     & python $dependencyVerifier --source-root $QgcRoot
     if ($LASTEXITCODE -ne 0) { throw "verify_qgc_dependency_pins.py failed" }
 
+    Write-Host "=== Generate complete Ukrainian translations ==="
+    $translationGenerator = Join-Path $OverlayRoot "tools\generate_ukrainian_translations.py"
+    $translationCache = Join-Path $OverlayRoot "translation-cache\en_uk.json"
+    & python $translationGenerator --source-root $QgcRoot --cache $translationCache
+    if ($LASTEXITCODE -ne 0) { throw "generate_ukrainian_translations.py failed" }
+
     Write-Host "=== Apply scoped MAVLink Status UI customization ==="
     $customizer = Join-Path $OverlayRoot "tools\apply_qgc_ui_customizations.py"
     & python $customizer --source-root $QgcRoot
     if ($LASTEXITCODE -ne 0) { throw "apply_qgc_ui_customizations.py failed" }
+
+
+    Write-Host "=== Apply Ukrainian UI, UTF-8, Play font and splash features ==="
+    $uaFeaturePatcher = Join-Path $OverlayRoot "tools\apply_qgc_ua_features.py"
+    & python $uaFeaturePatcher --source-root $QgcRoot
+    if ($LASTEXITCODE -ne 0) { throw "apply_qgc_ua_features.py failed" }
 
     Write-Host "=== Apply portable QGC data layout ==="
     $portableCustomizer = Join-Path $OverlayRoot "tools\apply_qgc_portable_mode.py"
@@ -79,6 +106,36 @@ try {
     $status = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'messageFontPointSize: ScreenTools.defaultFontPointSize \* 1.35' -Quiet } | Select-Object -First 1
     if (-not $mainWindow) { throw "Persistent MAVLink Status close-policy marker not found" }
     if (-not $status) { throw "Scoped MAVLink Status messageFontPointSize marker not found" }
+
+    $statusHandler = Join-Path $QgcRoot "src\MAVLink\StatusTextHandler.cc"
+    $screenToolsController = Join-Path $QgcRoot "src\QmlControls\ScreenToolsController.cc"
+    $mainSource = Join-Path $QgcRoot "src\main.cc"
+    $ukSource = Join-Path $QgcRoot "translations\qgc_source_uk_UA.ts"
+    $ukJson = Join-Path $QgcRoot "translations\qgc_json_uk_UA.ts"
+
+    if (-not (Select-String -Path $statusHandler -Pattern 'QStringDecoder utf8Decoder' -Quiet)) {
+        throw "MAVLink STATUSTEXT UTF-8 marker not found"
+    }
+    if (-not (Select-String -Path $screenToolsController -Pattern 'QStringLiteral\("Play"\)' -Quiet)) {
+        throw "Global Play font marker not found"
+    }
+    if (-not (Select-String -Path $mainSource -Pattern 'QGroundControl Portable' -Quiet)) {
+        throw "Portable splash screen marker not found"
+    }
+    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'autoCloseSeconds:\s*60' -Quiet } | Select-Object -First 1)) {
+        throw "MAVLink Status 60-second auto-close marker not found"
+    }
+    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'centerOnWindow' -Quiet } | Select-Object -First 1)) {
+        throw "Centered tool menu marker not found"
+    }
+    foreach ($translationFile in @($ukSource, $ukJson)) {
+        if (Select-String -Path $translationFile -Pattern 'type="unfinished"' -Quiet) {
+            throw "Unfinished Ukrainian translations remain in $translationFile"
+        }
+    }
+    if (-not (Test-Path $playRegular -PathType Leaf) -or -not (Test-Path $playBold -PathType Leaf)) {
+        throw "Bundled Play fonts are missing"
+    }
 
     $overrides = Join-Path $customDestination "cmake\CustomOverrides.cmake"
     if (-not (Select-String -Path $overrides -Pattern 'QGroundControl-UA' -Quiet)) {
