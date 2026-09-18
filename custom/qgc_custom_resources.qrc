@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/fonts">
+        <file alias="play-regular">resources/Play-Regular.ttf</file>
+        <file alias="play-bold">resources/Play-Bold.ttf</file>
+    </qresource>
+</RCC>
