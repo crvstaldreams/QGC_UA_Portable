@@ -78,6 +78,10 @@ Rectangle {
         currentPage = "mavlinkStatus"
     }
 
+    function showMPParams() {
+        currentPage = "mpParams"
+    }
+
     function reconnectVehicle() {
         if (activeVehicle) {
             activeVehicle.rebootVehicle()
@@ -113,6 +117,9 @@ Rectangle {
         if (currentPage === "mavlinkStatus") {
             return activeVehicle ? "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml" : ""
         }
+        if (currentPage === "mpParams") {
+            return "qrc:/qml/QGroundControl/Custom/ServiceMPParams.qml"
+        }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
         }
@@ -133,6 +140,9 @@ Rectangle {
         }
         if (currentPage === "mavlinkStatus") {
             return "Підключіть борт, щоб відкрити MAVLink Status."
+        }
+        if (currentPage === "mpParams") {
+            return ""
         }
         if (currentPage === "summary") {
             return "Підключіть борт, щоб відкрити огляд."
@@ -219,6 +229,13 @@ Rectangle {
 
                 QGCButton {
                     Layout.fillWidth: true
+                    text: "MP Params"
+                    checked: currentPage === "mpParams"
+                    onClicked: showMPParams()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
                     text: "Реконнект"
                     enabled: !!activeVehicle
                     onClicked: reconnectVehicle()
@@ -230,7 +247,7 @@ Rectangle {
 
                 QGCLabel {
                     Layout.fillWidth: true
-                    text: "Сервісний режим: огляд, прошивка, параметри, датчики, Servo/Saf.Mask, MAVLink Status та перезавантаження борту."
+                    text: "Сервісний режим: огляд, прошивка, параметри, MP Params, датчики, Servo/Saf.Mask, MAVLink Status та перезавантаження борту."
                     wrapMode: Text.WordWrap
                     font.pointSize: ScreenTools.smallFontPointSize
                     color: qgcPal.text
