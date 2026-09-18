@@ -261,14 +261,10 @@ def patch_main_status(root: Path) -> Path:
         id: overallStatusIndicatorPage
 
         ToolIndicatorPage {
-            showExpand:                         true
-            waitForParameters:                  false
-            expandedComponentWaitForParameters: true
-            contentComponent:                   mainStatusContentComponent
-            expandedComponent:                  mainStatusExpandedComponent
-
-            Component.onCompleted:   mainWindow.suppressCriticalVehicleMessages = true
-            Component.onDestruction: mainWindow.suppressCriticalVehicleMessages = false
+            showExpand:         _activeVehicle.mainStatusIndicatorContentItem ? true : false
+            waitForParameters:  _activeVehicle.mainStatusIndicatorContentItem ? true : false
+            contentComponent:   mainStatusContentComponent
+            expandedComponent:  mainStatusExpandedComponent
         }
     }
 '''
@@ -278,12 +274,17 @@ def patch_main_status(root: Path) -> Path:
         Rectangle {
             width:  mainWindow.contentItem.width * 0.65
             height: mainWindow.contentItem.height * 0.65
-            color:  qgcPal.window
+            color:  mavStatusPal.window
             radius: ScreenTools.defaultBorderRadius
             border.width: 2
-            border.color: qgcPal.buttonBorder
+            border.color: mavStatusPal.buttonBorder
 
             property bool _showExpand: false
+
+            QGCPalette {
+                id: mavStatusPal
+                colorGroupEnabled: true
+            }
 
             Component.onCompleted:   mainWindow.suppressCriticalVehicleMessages = true
             Component.onDestruction: mainWindow.suppressCriticalVehicleMessages = false
@@ -376,10 +377,10 @@ def patch_main_status(root: Path) -> Path:
                 Rectangle {
                     Layout.fillWidth: true
                     Layout.fillHeight: true
-                    color: qgcPal.windowShadeDark
+                    color: mavStatusPal.windowShadeDark
                     radius: ScreenTools.defaultBorderRadius
                     border.width: 2
-                    border.color: qgcPal.buttonBorder
+                    border.color: mavStatusPal.buttonBorder
                     clip: true
 
                     VehicleMessageList {
@@ -409,17 +410,22 @@ def patch_contrast_controls(root: Path) -> list[Path]:
     # border, and darker fill for stronger separation from the background.
     text_field = root / "src" / "QmlControls" / "QGCTextField.qml"
     text = text_field.read_text(encoding="utf-8")
-    text = replace_once(
-        text,
+    old_text_field = (
         "        border.width:   control.validationError ? 2 : (qgcPal.globalTheme === QGCPalette.Light ? 1 : 0)\n"
         "        border.color:   control.validationError ? qgcPal.colorRed : qgcPal.buttonBorder\n"
-        "        radius:         ScreenTools.defaultBorderRadius\n"
-        "        color:          qgcPal.textField\n",
+    )
+    if old_text_field not in text:
+        raise FeaturePatchError("Could not apply high contrast QGCTextField: border anchors missing")
+    text = text.replace(
+        old_text_field,
         "        border.width:   control.validationError ? 3 : (control.activeFocus ? 3 : 2)\n"
-        "        border.color:   control.validationError ? qgcPal.colorRed : (control.activeFocus ? qgcPal.buttonHighlight : qgcPal.buttonBorder)\n"
-        "        radius:         ScreenTools.defaultBorderRadius\n"
+        "        border.color:   control.validationError ? qgcPal.colorRed : (control.activeFocus ? qgcPal.buttonHighlight : qgcPal.buttonBorder)\n",
+        1,
+    )
+    text = text.replace(
+        "        color:          qgcPal.textField\n",
         "        color:          control.activeFocus ? qgcPal.windowShadeDark : qgcPal.textField\n",
-        "high contrast QGCTextField",
+        1,
     )
     text_field.write_text(text, encoding="utf-8", newline="\n")
     changed.append(text_field)
