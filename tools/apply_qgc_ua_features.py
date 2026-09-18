@@ -261,6 +261,15 @@ def patch_centered_tool_menu(root: Path) -> Path:
 '''
     text = replace_once(text, old_property, new_property, "drawer center property")
 
+    text = replace_once(
+        text,
+        "        y:              ScreenTools.toolbarHeight + _margins\n",
+        "        y:              centerOnWindow\n"
+        "                            ? Math.max(ScreenTools.toolbarHeight + _margins, Math.round((mainWindow.contentItem.height - height) / 2))\n"
+        "                            : ScreenTools.toolbarHeight + _margins\n",
+        "centered drawer y position",
+    )
+
     old_calc = '''        function calcXPosition() {
             if (indicatorItem) {
 '''
@@ -298,6 +307,7 @@ def patch_splash(root: Path) -> Path:
 #include <QtGui/QFontDatabase>
 #include <QtGui/QPainter>
 #include <QtCore/QElapsedTimer>
+#include <QtCore/QEventLoop>
 #include <QtCore/QThread>
 '''
     text = replace_once(text, include_marker, include_block, "portable splash includes")
