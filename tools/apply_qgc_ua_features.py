@@ -63,6 +63,91 @@ def patch_status_utf8(root: Path) -> Path:
     return path
 
 
+def patch_firmware_upgrade_dedupe(root: Path) -> Path:
+    path = root / "src" / "Vehicle" / "VehicleSetup" / "FirmwareUpgradeController.cc"
+    text = path.read_text(encoding="utf-8")
+
+    if "#include <QtCore/QSet>" not in text:
+        text = replace_once(
+            text,
+            "#include <QtCore/QJsonArray>\n",
+            "#include <QtCore/QJsonArray>\n#include <QtCore/QSet>\n",
+            "QSet include for firmware device dedupe",
+        )
+
+    old = '''QStringList FirmwareUpgradeController::availableBoardsName(void)
+{
+    QGCSerialPortInfo::BoardType_t boardType;
+    QString boardName;
+    QStringList names;
+
+    auto ports = QGCSerialPortInfo::availablePorts();
+    for (const auto& info : ports) {
+        if(info.canFlash()) {
+            info.getBoardInfo(boardType, boardName);
+            names.append(boardName);
+        }
+    }
+
+    return names;
+}
+'''
+    new = '''QStringList FirmwareUpgradeController::availableBoardsName(void)
+{
+    QGCSerialPortInfo::BoardType_t boardType;
+    QString boardName;
+    QStringList names;
+    QSet<QString> seenPhysicalDevices;
+
+    const auto ports = QGCSerialPortInfo::availablePorts();
+    for (const auto& info : ports) {
+        if (!info.canFlash()) {
+            continue;
+        }
+
+        info.getBoardInfo(boardType, boardName);
+
+        // Windows can expose a Pixhawk 6C/Holybro composite USB device as
+        // multiple COM interfaces. When those interfaces share a real USB
+        // serial number they are one physical flight controller, not two.
+        // Never deduplicate ports with an empty serial number: two separate
+        // boards may legitimately have the same VID/PID and display name.
+        const QString usbSerial = info.serialNumber().trimmed();
+        if (!usbSerial.isEmpty()) {
+            const QString physicalDeviceKey = QStringLiteral("%1:%2:%3")
+                                                  .arg(info.vendorIdentifier())
+                                                  .arg(info.productIdentifier())
+                                                  .arg(usbSerial);
+            if (seenPhysicalDevices.contains(physicalDeviceKey)) {
+                qCDebug(FirmwareUpgradeLog)
+                    << "Ignoring duplicate flashable USB interface"
+                    << "port" << info.portName()
+                    << "systemLocation" << info.systemLocation()
+                    << "serialNumber" << usbSerial
+                    << "boardName" << boardName;
+                continue;
+            }
+            seenPhysicalDevices.insert(physicalDeviceKey);
+        }
+
+        qCDebug(FirmwareUpgradeLog)
+            << "Detected flashable physical device"
+            << "port" << info.portName()
+            << "systemLocation" << info.systemLocation()
+            << "serialNumber" << usbSerial
+            << "boardName" << boardName;
+
+        names.append(boardName);
+    }
+
+    return names;
+}
+'''
+    text = replace_once(text, old, new, "Pixhawk composite USB firmware dedupe")
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
 def patch_play_font(root: Path) -> list[Path]:
     controller = root / "src" / "QmlControls" / "ScreenToolsController.cc"
     text = controller.read_text(encoding="utf-8")
@@ -379,6 +464,7 @@ def verify_markers(paths: list[Path]) -> None:
         "VehicleMessageList.qml": "messagePanelMinHeight",
         "MainStatusIndicator.qml": "autoCloseSeconds: 60",
         "MainWindow.qml": "centerOnWindow",
+        "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
         "main.cc": "QGroundControl Portable",
     }
     for path in paths:
@@ -396,6 +482,7 @@ def main() -> int:
     try:
         changed: list[Path] = []
         changed.append(patch_status_utf8(root))
+        changed.append(patch_firmware_upgrade_dedupe(root))
         changed.extend(patch_play_font(root))
         changed.append(patch_vehicle_message_list(root))
         changed.append(patch_main_status(root))
