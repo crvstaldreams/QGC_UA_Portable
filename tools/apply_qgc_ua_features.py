@@ -383,14 +383,22 @@ def patch_main_status(root: Path) -> Path:
                     border.color: mavStatusPal.buttonBorder
                     clip: true
 
-                    VehicleMessageList {
-                        id: vehicleMessageList
+                    ScrollView {
+                        id: mavlinkStatusScroll
                         anchors.fill: parent
                         anchors.margins: ScreenTools.defaultFontPixelWidth * 0.6
-                        activeVehicle: control._activeVehicle
-                        messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60
-                        messagePanelWidth: parent.width
-                        messagePanelMinHeight: parent.height
+                        clip: true
+                        ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                        VehicleMessageList {
+                            id: vehicleMessageList
+                            width: mavlinkStatusScroll.availableWidth
+                            activeVehicle: control._activeVehicle
+                            messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60
+                            messagePanelWidth: mavlinkStatusScroll.availableWidth
+                            messagePanelMinHeight: mavlinkStatusScroll.availableHeight
+                        }
                     }
                 }
             }
