@@ -136,6 +136,7 @@ try {
     }
     $serviceModeQml = Join-Path $QgcRoot "custom\qml\ServiceMode.qml"
     $serviceParamsQml = Join-Path $QgcRoot "custom\qml\ServiceParameterEditor.qml"
+    $serviceServoQml = Join-Path $QgcRoot "custom\qml\ServiceServoSafety.qml"
     if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
         throw "Service mode menu button marker not found"
     }
@@ -147,6 +148,7 @@ try {
         'text:\s*"Прошивка"',
         'text:\s*"Параметри"',
         'text:\s*"Датчики"',
+        'text:\s*"Servo/Saf.Mask"',
         'text:\s*"Реконнект"',
         'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
@@ -162,9 +164,18 @@ try {
     if (-not (Test-Path $serviceParamsQml -PathType Leaf)) {
         throw "ServiceParameterEditor.qml missing from custom overlay"
     }
-    foreach ($paramMarker in @('controller\.categories', 'controller\.parameters', 'longDescription', 'defaultValueString')) {
+    foreach ($paramMarker in @('serviceTreeModel', 'controller\.parameters', 'BRD_', 'SERVO')) {
         if (-not (Select-String -Path $serviceParamsQml -Pattern $paramMarker -Quiet)) {
             throw "Service parameter editor marker not found: $paramMarker"
+        }
+    }
+
+    if (-not (Test-Path $serviceServoQml -PathType Leaf)) {
+        throw "ServiceServoSafety.qml missing from custom overlay"
+    }
+    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(')) {
+        if (-not (Select-String -Path $serviceServoQml -Pattern $servoMarker -Quiet)) {
+            throw "Servo/Safety service marker not found: $servoMarker"
         }
     }
 
