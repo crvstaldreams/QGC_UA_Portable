@@ -62,14 +62,22 @@ Rectangle {
             border.color: qgcPal.buttonBorder
             clip: true
 
-            VehicleMessageList {
-                id: vehicleMessageList
+            ScrollView {
+                id: mavlinkStatusScroll
                 anchors.fill: parent
                 anchors.margins: ScreenTools.defaultFontPixelWidth * 0.6
-                activeVehicle: root.activeVehicle
-                messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60
-                messagePanelWidth: parent.width
-                messagePanelMinHeight: parent.height
+                clip: true
+                ScrollBar.vertical.policy: ScrollBar.AlwaysOn
+                ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                VehicleMessageList {
+                    id: vehicleMessageList
+                    width: mavlinkStatusScroll.availableWidth
+                    activeVehicle: root.activeVehicle
+                    messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60
+                    messagePanelWidth: mavlinkStatusScroll.availableWidth
+                    messagePanelMinHeight: mavlinkStatusScroll.availableHeight
+                }
             }
         }
     }
