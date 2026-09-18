@@ -36,6 +36,44 @@ Item {
         return controller.parameterExists(-1, servoParamName(outputIndex))
     }
 
+    function setServoFunction(outputIndex, functionValue) {
+        if (!servoParamExists(outputIndex)) {
+            return false
+        }
+        const fact = controller.getParameterFact(-1, servoParamName(outputIndex), false)
+        if (!fact) {
+            return false
+        }
+        fact.rawValue = functionValue
+        return true
+    }
+
+    function applyFmuPwmOutAuxProfile() {
+        if (!safetyMaskFact) {
+            return
+        }
+
+        // ArduPilot SRV_Channel function ids:
+        // Motor1..Motor6 = 33..38, RCIN10 = 60.
+        safetyMaskFact.rawValue = 255
+        for (let output = 9; output <= 14; output++) {
+            setServoFunction(output, 33 + (output - 9))
+        }
+        setServoFunction(15, 60)
+    }
+
+    function applyIoPwmOutMainProfile() {
+        if (!safetyMaskFact) {
+            return
+        }
+
+        safetyMaskFact.rawValue = 65280
+        for (let output = 1; output <= 6; output++) {
+            setServoFunction(output, 33 + (output - 1))
+        }
+        setServoFunction(7, 60)
+    }
+
     function maskBitEnabled(outputIndex) {
         if (!safetyMaskFact) {
             return false
@@ -75,9 +113,57 @@ Item {
         }
     }
 
-    RowLayout {
+    ColumnLayout {
         anchors.fill: parent
-        spacing: ScreenTools.defaultFontPixelWidth
+        spacing: ScreenTools.defaultFontPixelHeight * 0.35
+
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: profileRow.implicitHeight + ScreenTools.defaultFontPixelHeight * 0.65
+            radius: ScreenTools.defaultFontPixelWidth / 3
+            color: qgcPal.window
+
+            RowLayout {
+                id: profileRow
+                anchors.fill: parent
+                anchors.margins: ScreenTools.defaultFontPixelWidth * 0.45
+                spacing: ScreenTools.defaultFontPixelWidth * 0.6
+
+                QGCLabel {
+                    text: "Швидкі профілі:"
+                    font.bold: true
+                }
+
+                QGCButton {
+                    text: "FMU PWM OUT (AUX)"
+                    enabled: root.safetyMaskAvailable
+                    onClicked: root.applyFmuPwmOutAuxProfile()
+                    ToolTip.visible: hovered
+                    ToolTip.text: "BRD_SAFETY_MASK=255; SERVO9-14=Motor1-6; SERVO15=RCIN10"
+                }
+
+                QGCButton {
+                    text: "I/O PWM OUT (MAIN)"
+                    enabled: root.safetyMaskAvailable
+                    onClicked: root.applyIoPwmOutMainProfile()
+                    ToolTip.visible: hovered
+                    ToolTip.text: "BRD_SAFETY_MASK=65280; SERVO1-6=Motor1-6; SERVO7=RCIN10"
+                }
+
+                QGCLabel {
+                    Layout.fillWidth: true
+                    text: "Зміна SERVOx_FUNCTION може потребувати перезавантаження польотника."
+                    color: qgcPal.warningText
+                    font.pointSize: ScreenTools.smallFontPointSize
+                    wrapMode: Text.WordWrap
+                }
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            spacing: ScreenTools.defaultFontPixelWidth
 
         Rectangle {
             Layout.preferredWidth: parent.width * 0.52
@@ -345,6 +431,7 @@ Item {
                     }
                 }
             }
+        }
         }
     }
 }
