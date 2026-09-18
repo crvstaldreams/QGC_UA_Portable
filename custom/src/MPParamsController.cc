@@ -3,6 +3,7 @@
 #include "Fact.h"
 #include "ParameterManager.h"
 #include "Vehicle.h"
+#include "MultiVehicleManager.h"
 
 #include <QtCore/QCollator>
 #include <QtCore/QFile>
@@ -14,6 +15,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 
 namespace {
 
@@ -270,6 +272,29 @@ MPParamsController::MPParamsController(QObject* parent)
 {
     _loadFavorites();
 
+    MultiVehicleManager* const manager = MultiVehicleManager::instance();
+    connect(manager, &MultiVehicleManager::activeVehicleChanged, this, [this](Vehicle* vehicle) {
+        _attachVehicle(vehicle);
+    });
+    _attachVehicle(manager->activeVehicle());
+}
+
+void MPParamsController::_attachVehicle(Vehicle* vehicle)
+{
+    if (_parameterManager) {
+        disconnect(_parameterManager, nullptr, this, nullptr);
+    }
+
+    _vehicle = vehicle;
+    _parameterManager = vehicle ? vehicle->parameterManager() : nullptr;
+
+    if (!_pendingValues.isEmpty()) {
+        _pendingValues.clear();
+        emit changedCountChanged();
+    }
+    _compareModel.setRows({});
+    emit compareCountChanged();
+
     if (_parameterManager) {
         connect(_parameterManager, &ParameterManager::loadProgressChanged, this, &MPParamsController::loadProgressChanged);
         connect(_parameterManager, &ParameterManager::parametersReadyChanged, this, [this](bool) {
@@ -286,6 +311,12 @@ MPParamsController::MPParamsController(QObject* parent)
 
     _rebuildTree();
     _rebuildTable();
+    emit loadProgressChanged();
+    emit parametersReadyChanged();
+    emit pendingWritesChanged();
+    _setStatus(vehicle
+                   ? QStringLiteral("Борт підключено. MP Params готовий до роботи.")
+                   : QStringLiteral("Оберіть COM і натисніть Connect або підключіть борт через QGroundControl."));
 }
 
 double MPParamsController::loadProgress() const
@@ -542,13 +573,20 @@ void MPParamsController::_loadFavorites()
 {
     const QSettings settings;
     const QStringList saved = settings.value(QStringLiteral("MPParams/Favorites")).toStringList();
-    _favorites = QSet<QString>(saved.begin(), saved.end());
+    _favorites.clear();
+    for (const QString& name : saved) {
+        _favorites.insert(name);
+    }
 }
 
 void MPParamsController::_saveFavorites()
 {
     QSettings settings;
-    QStringList saved(_favorites.begin(), _favorites.end());
+    QStringList saved;
+    saved.reserve(_favorites.size());
+    for (const QString& name : std::as_const(_favorites)) {
+        saved.append(name);
+    }
     saved.sort(Qt::CaseInsensitive);
     settings.setValue(QStringLiteral("MPParams/Favorites"), saved);
 }
