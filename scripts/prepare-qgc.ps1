@@ -137,6 +137,7 @@ try {
     $serviceModeQml = Join-Path $QgcRoot "custom\qml\ServiceMode.qml"
     $serviceParamsQml = Join-Path $QgcRoot "custom\qml\ServiceParameterEditor.qml"
     $serviceServoQml = Join-Path $QgcRoot "custom\qml\ServiceServoSafety.qml"
+    $serviceMavlinkQml = Join-Path $QgcRoot "custom\qml\ServiceMavlinkStatus.qml"
     if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
         throw "Service mode menu button marker not found"
     }
@@ -149,6 +150,7 @@ try {
         'text:\s*"Параметри"',
         'text:\s*"Датчики"',
         'text:\s*"Servo/Saf.Mask"',
+        'text:\s*"MAVLink Status"',
         'text:\s*"Реконнект"',
         'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
@@ -167,6 +169,15 @@ try {
     foreach ($paramMarker in @('serviceTreeModel', 'controller\.parameters', 'BRD_', 'SERVO')) {
         if (-not (Select-String -Path $serviceParamsQml -Pattern $paramMarker -Quiet)) {
             throw "Service parameter editor marker not found: $paramMarker"
+        }
+    }
+
+    if (-not (Test-Path $serviceMavlinkQml -PathType Leaf)) {
+        throw "ServiceMavlinkStatus.qml missing from custom overlay"
+    }
+    foreach ($mavMarker in @('interval:\s*5000', 'messageFontPointSize:.*1\.60', 'refreshMessages\(\)')) {
+        if (-not (Select-String -Path $serviceMavlinkQml -Pattern $mavMarker -Quiet)) {
+            throw "Service MAVLink Status marker not found: $mavMarker"
         }
     }
 
