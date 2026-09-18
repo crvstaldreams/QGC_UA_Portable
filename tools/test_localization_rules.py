@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import unittest
 
-from generate_ukrainian_translations import contextual_override
+from generate_ukrainian_translations import contextual_override, find_manual_override
 
 
 class UkrainianLocalizationRulesTest(unittest.TestCase):
@@ -67,6 +67,15 @@ class UkrainianLocalizationRulesTest(unittest.TestCase):
         self.assertEqual(contextual_override("Armed", "MainStatusIndicator", []), "Озброєно")
         self.assertEqual(contextual_override("Home", "FlyView", []), "HOME")
         self.assertEqual(contextual_override("Attitude", "FlyView", []), "Просторова орієнтація")
+
+    def test_manual_override_is_context_specific_and_authoritative(self):
+        overrides = {
+            ("VideoSettings", "Frame"): "Кадр відео",
+            ("", "Save"): "Зберегти вручну",
+        }
+        self.assertEqual(find_manual_override("Frame", "VideoSettings", overrides), "Кадр відео")
+        self.assertIsNone(find_manual_override("Frame", "APMAirframeComponent", overrides))
+        self.assertEqual(find_manual_override("Save", "AnyContext", overrides), "Зберегти вручну")
 
     def test_terrain_frame_is_coordinate_frame(self):
         self.assertEqual(
