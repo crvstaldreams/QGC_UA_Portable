@@ -26,9 +26,9 @@ class ServiceModeContractTest(unittest.TestCase):
         for label in ("Огляд", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
             self.assertIn(f'text: "{label}"', self.service)
 
-    def test_service_panel_contains_live_orientation_map_gps_and_compass(self):
+    def test_service_panel_contains_vertical_gps_compass_and_attitude(self):
         self.assertIn("QGCAttitudeWidget", self.service)
-        self.assertIn("FlightMap", self.service)
+        self.assertNotIn("FlightMap", self.service)
         self.assertIn("activeVehicle.gps.count.valueString", self.service)
         self.assertIn("activeVehicle.gps.lock.enumStringValue", self.service)
         self.assertIn("activeVehicle.gps.hdop.valueString", self.service)
@@ -37,14 +37,15 @@ class ServiceModeContractTest(unittest.TestCase):
     def test_service_telemetry_fits_one_screen_without_scroll(self):
         self.assertNotIn("QGCFlickable {\n                id: serviceInfoScroll", self.service)
         self.assertIn("id: serviceInfoPanel", self.service)
-        self.assertIn("RowLayout {", self.service)
         self.assertIn("columns: 4", self.service)
+        self.assertLess(self.service.index('text: "GPS info"'), self.service.index('text: "Компас"'))
+        self.assertLess(self.service.index('text: "Компас"'), self.service.index('text: "Положення польотника"'))
         self.assertIn("Крен %1°   Тангаж %2°", self.service)
 
-    def test_service_sidebar_is_compact_and_compass_is_half_size(self):
+    def test_service_sidebar_uses_full_size_vertical_instruments(self):
         self.assertIn("Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 32", self.service)
-        self.assertIn("compassSize: attitudeSize * 0.5", self.service)
-        self.assertIn("Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 5.8", self.service)
+        self.assertIn("instrumentSize", self.service)
+        self.assertNotIn("compassSize: attitudeSize * 0.5", self.service)
         self.assertIn("Layout.preferredWidth: parent.width * 0.52", self.servo)
         self.assertIn("Layout.preferredHeight: visible ? ScreenTools.defaultFontPixelHeight * 1.95 : 0", self.servo)
 
@@ -72,8 +73,12 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("ServiceMPParams.qml", self.service)
         for marker in ("Read Params", "Write Params", "Load File", "Save File", "Compare", "LinkConfiguration.TypeSerial"):
             self.assertIn(marker, self.mp_params)
-        for marker in ("Mission Planner Params (*.param *.parm)", "MP Parameter Tree", "controller.treeModel", "controller.compareModel"):
+        for marker in ("Mission Planner Params (*.param *.parm)", "controller.compareModel", "uiScale: 0.84"):
             self.assertIn(marker, self.mp_params)
+        self.assertNotIn("MP Parameter Tree", self.mp_params)
+        self.assertNotIn("controller.treeModel", self.mp_params)
+        self.assertIn("ServiceMPParamsWindow.qml", self.service)
+        self.assertIn("Qt.createComponent", self.service)
         for marker in ("_parseMpFile", "separator(QStringLiteral(\"[,\\\\s]+\"))", "stream << name << ',' << value", "writePending", "_rebuildTree"):
             self.assertIn(marker, self.mp_controller)
 
@@ -103,6 +108,9 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("setServoFunction(output, 33 + (output - 1))", self.servo)
         self.assertIn("setServoFunction(15, 60)", self.servo)
         self.assertIn("setServoFunction(7, 60)", self.servo)
+        self.assertIn("for (let output = 1; output <= 16; output++)", self.servo)
+        self.assertIn("setServoFunction(output, 0)", self.servo)
+        self.assertNotIn('text: parameterName', self.servo)
 
 
 if __name__ == "__main__":
