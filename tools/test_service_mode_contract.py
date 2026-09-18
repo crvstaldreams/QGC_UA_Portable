@@ -8,6 +8,8 @@ SERVICE_MODE = ROOT / "custom" / "qml" / "ServiceMode.qml"
 PARAM_EDITOR = ROOT / "custom" / "qml" / "ServiceParameterEditor.qml"
 SERVO_PAGE = ROOT / "custom" / "qml" / "ServiceServoSafety.qml"
 MAVLINK_PAGE = ROOT / "custom" / "qml" / "ServiceMavlinkStatus.qml"
+MP_PARAMS_PAGE = ROOT / "custom" / "qml" / "ServiceMPParams.qml"
+MP_PARAMS_CONTROLLER = ROOT / "custom" / "src" / "MPParamsController.cc"
 
 
 class ServiceModeContractTest(unittest.TestCase):
@@ -17,9 +19,11 @@ class ServiceModeContractTest(unittest.TestCase):
         cls.params = PARAM_EDITOR.read_text(encoding="utf-8")
         cls.servo = SERVO_PAGE.read_text(encoding="utf-8")
         cls.mavlink = MAVLINK_PAGE.read_text(encoding="utf-8")
+        cls.mp_params = MP_PARAMS_PAGE.read_text(encoding="utf-8")
+        cls.mp_controller = MP_PARAMS_CONTROLLER.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
-        for label in ("Огляд", "Прошивка", "Параметри", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
+        for label in ("Огляд", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
             self.assertIn(f'text: "{label}"', self.service)
 
     def test_service_panel_contains_live_orientation_map_gps_and_compass(self):
@@ -51,6 +55,15 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("controller.parameters", self.params)
         self.assertNotIn("longDescription", self.params)
         self.assertNotIn("defaultValueString", self.params)
+
+    def test_mp_params_mission_planner_workflow(self):
+        self.assertIn("ServiceMPParams.qml", self.service)
+        for marker in ("Read Params", "Write Params", "Load File", "Save File", "Compare", "LinkConfiguration.TypeSerial"):
+            self.assertIn(marker, self.mp_params)
+        for marker in ("Mission Planner Params (*.param *.parm)", "MP Parameter Tree", "controller.treeModel", "controller.compareModel"):
+            self.assertIn(marker, self.mp_params)
+        for marker in ("_parseMpFile", "separator(QStringLiteral(\"[,\\\\s]+\"))", "stream << name << ',' << value", "writePending", "_rebuildTree"):
+            self.assertIn(marker, self.mp_controller)
 
     def test_service_mavlink_status_refreshes_every_five_seconds(self):
         self.assertIn("ServiceMavlinkStatus.qml", self.service)
