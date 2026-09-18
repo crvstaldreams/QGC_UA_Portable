@@ -385,8 +385,19 @@ def patch_centered_tool_menu(root: Path) -> Path:
 
 
 def patch_service_mode_menu(root: Path) -> Path:
-    path = locate_unique(root, "MainWindow.qml", ("function showVehicleConfig", "id: setupButton", "id: settingsButton"))
+    # The build is pinned to QGC v5.0.8, where MainWindow lives at this exact
+    # path. Do not locate it using spacing-sensitive QML id text such as
+    # "id: setupButton": upstream aligns ids with variable whitespace.
+    path = root / "src" / "UI" / "MainWindow.qml"
+    if not path.is_file():
+        raise FeaturePatchError(f"MainWindow.qml not found at pinned path: {path}")
+
     text = path.read_text(encoding="utf-8")
+    for marker in ("function showVehicleConfig()", "setupButton", "settingsButton"):
+        if marker not in text:
+            raise FeaturePatchError(
+                f"MainWindow.qml service-mode anchor missing: {marker}"
+            )
 
     vehicle_function = '''    function showVehicleConfig() {
         showTool(qsTr("Vehicle Configuration"), "qrc:/qml/QGroundControl/VehicleSetup/SetupView.qml", "/qmlimages/Gears.svg")
