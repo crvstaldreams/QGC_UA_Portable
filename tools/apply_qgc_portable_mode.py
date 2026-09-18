@@ -139,6 +139,29 @@ def _patch_installer(source_root: Path) -> Path:
 
     text = text.replace("SetShellVarContext all", "SetShellVarContext current")
 
+    # Keep Windows Error Reporting dumps inside the portable application tree.
+    text = text.replace(
+        'WriteRegExpandStr HKCU "SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\${EXENAME}.exe" "DumpFolder" "%LOCALAPPDATA%\\QGCCrashDumps"',
+        'WriteRegExpandStr HKCU "SOFTWARE\\Microsoft\\Windows\\Windows Error Reporting\\LocalDumps\\${EXENAME}.exe" "DumpFolder" "$INSTDIR\\bin\\PortableData\\Files\\CrashLogs"'
+    )
+    text = text.replace(
+        "  SetOutPath $INSTDIR\n  File /r",
+        "  SetOutPath $INSTDIR\n  CreateDirectory \"$INSTDIR\\bin\\PortableData\\Files\\CrashLogs\"\n  File /r",
+        1,
+    )
+
+    # Portable builds never use the legacy AppData tree, so uninstall must not touch it.
+    text = text.replace(
+        '  ${If} $R1 != 1\n    RMDir /r /REBOOTOK "$APPDATA\\${ORGNAME}\\"\n  ${Endif}\n',
+        '',
+        1,
+    )
+
+    if "%LOCALAPPDATA%\\QGCCrashDumps" in text:
+        raise PortableModeError("Legacy external crash-dump path is still present")
+    if "$APPDATA\\${ORGNAME}" in text:
+        raise PortableModeError("Legacy AppData uninstall path is still present")
+
     if applied < 7:
         raise PortableModeError(f"Installer portable patch incomplete; replacements={applied}")
 
