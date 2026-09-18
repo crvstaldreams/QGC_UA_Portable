@@ -234,7 +234,7 @@ Rectangle {
 
                 // Existing setup pages use this context property when they need
                 // to know which autopilot component they belong to.
-                property var vehicleComponent: sensorComponent
+                property var vehicleComponent: currentPage === "sensors" ? sensorComponent : null
             }
 
             QGCLabel {
