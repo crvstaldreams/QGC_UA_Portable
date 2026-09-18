@@ -154,6 +154,8 @@ try {
     $serviceParamsQml = Join-Path $QgcRoot "custom\qml\ServiceParameterEditor.qml"
     $serviceServoQml = Join-Path $QgcRoot "custom\qml\ServiceServoSafety.qml"
     $serviceMavlinkQml = Join-Path $QgcRoot "custom\qml\ServiceMavlinkStatus.qml"
+    $serviceMPParamsQml = Join-Path $QgcRoot "custom\qml\ServiceMPParams.qml"
+    $mpParamsController = Join-Path $QgcRoot "custom\src\MPParamsController.cc"
     if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
         throw "Service mode menu button marker not found"
     }
@@ -167,6 +169,7 @@ try {
         'text:\s*"Датчики"',
         'text:\s*"Servo/Saf.Mask"',
         'text:\s*"MAVLink Status"',
+        'text:\s*"MP Params"',
         'text:\s*"Реконнект"',
         'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
@@ -185,6 +188,23 @@ try {
     foreach ($paramMarker in @('serviceTreeModel', 'controller\.parameters', 'BRD_', 'SERVO')) {
         if (-not (Select-String -Path $serviceParamsQml -Pattern $paramMarker -Quiet)) {
             throw "Service parameter editor marker not found: $paramMarker"
+        }
+    }
+
+    if (-not (Test-Path $serviceMPParamsQml -PathType Leaf)) {
+        throw "ServiceMPParams.qml missing from custom overlay"
+    }
+    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'controller\.treeModel')) {
+        if (-not (Select-String -Path $serviceMPParamsQml -Pattern $mpMarker -Quiet)) {
+            throw "MP Params service marker not found: $mpMarker"
+        }
+    }
+    if (-not (Test-Path $mpParamsController -PathType Leaf)) {
+        throw "MPParamsController.cc missing from custom overlay"
+    }
+    foreach ($mpControllerMarker in @('_parseMpFile', '\[,\\s\]\+', 'writePending', '_rebuildTree', 'stream << name <<')) {
+        if (-not (Select-String -Path $mpParamsController -Pattern $mpControllerMarker -Quiet)) {
+            throw "MP Params controller marker not found: $mpControllerMarker"
         }
     }
 
