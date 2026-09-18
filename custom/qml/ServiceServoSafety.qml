@@ -80,34 +80,34 @@ Item {
         spacing: ScreenTools.defaultFontPixelWidth
 
         Rectangle {
-            Layout.preferredWidth: parent.width * 0.58
+            Layout.preferredWidth: parent.width * 0.52
             Layout.fillHeight: true
             radius: ScreenTools.defaultFontPixelWidth / 3
             color: qgcPal.window
 
             ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: ScreenTools.defaultFontPixelWidth
-                spacing: ScreenTools.defaultFontPixelHeight * 0.4
+                anchors.margins: ScreenTools.defaultFontPixelWidth * 0.7
+                spacing: ScreenTools.defaultFontPixelHeight * 0.28
 
                 QGCLabel {
                     Layout.fillWidth: true
                     text: "Servo / призначення виходів"
                     font.bold: true
-                    font.pointSize: ScreenTools.mediumFontPointSize
+                    font.pointSize: ScreenTools.defaultFontPointSize
                 }
 
                 RowLayout {
                     Layout.fillWidth: true
 
                     QGCLabel {
-                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7
+                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 6
                         text: "Вихід"
                         font.bold: true
                     }
 
                     QGCLabel {
-                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 17
+                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 15
                         text: "Параметр"
                         font.bold: true
                     }
@@ -138,7 +138,7 @@ Item {
                                 required property int index
 
                                 Layout.fillWidth: true
-                                Layout.preferredHeight: visible ? ScreenTools.defaultFontPixelHeight * 2.25 : 0
+                                Layout.preferredHeight: visible ? ScreenTools.defaultFontPixelHeight * 1.95 : 0
                                 visible: root.servoParamExists(index + 1)
                                 color: index % 2 ? qgcPal.windowShade : qgcPal.window
                                 radius: ScreenTools.defaultFontPixelWidth / 5
@@ -150,17 +150,17 @@ Item {
 
                                 RowLayout {
                                     anchors.fill: parent
-                                    anchors.margins: ScreenTools.defaultFontPixelWidth * 0.35
-                                    spacing: ScreenTools.defaultFontPixelWidth * 0.7
+                                    anchors.margins: ScreenTools.defaultFontPixelWidth * 0.22
+                                    spacing: ScreenTools.defaultFontPixelWidth * 0.42
 
                                     QGCLabel {
-                                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 6
+                                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 5.2
                                         text: "OUT " + (index + 1)
                                         font.bold: true
                                     }
 
                                     QGCLabel {
-                                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 16
+                                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 14
                                         text: parameterName
                                     }
 
@@ -193,14 +193,14 @@ Item {
                     anchors.left: parent.left
                     anchors.right: parent.right
                     anchors.top: parent.top
-                    anchors.margins: ScreenTools.defaultFontPixelWidth
-                    spacing: ScreenTools.defaultFontPixelHeight * 0.35
+                    anchors.margins: ScreenTools.defaultFontPixelWidth * 0.65
+                    spacing: ScreenTools.defaultFontPixelHeight * 0.25
 
                     QGCLabel {
                         Layout.fillWidth: true
                         text: "BRD_SAFETY_MASK"
                         font.bold: true
-                        font.pointSize: ScreenTools.mediumFontPointSize
+                        font.pointSize: ScreenTools.defaultFontPointSize
                     }
 
                     QGCLabel {
@@ -221,7 +221,7 @@ Item {
                         }
 
                         FactTextField {
-                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 16
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 11
                             fact: root.safetyMaskFact
                             showUnits: false
                         }
@@ -236,7 +236,7 @@ Item {
                         Layout.fillWidth: true
                         visible: root.safetyMaskAvailable
                         columns: 4
-                        columnSpacing: ScreenTools.defaultFontPixelWidth
+                        columnSpacing: ScreenTools.defaultFontPixelWidth * 0.45
                         rowSpacing: 0
 
                         Repeater {
@@ -261,14 +261,14 @@ Item {
 
                 ColumnLayout {
                     anchors.fill: parent
-                    anchors.margins: ScreenTools.defaultFontPixelWidth
-                    spacing: ScreenTools.defaultFontPixelHeight * 0.4
+                    anchors.margins: ScreenTools.defaultFontPixelWidth * 0.65
+                    spacing: ScreenTools.defaultFontPixelHeight * 0.28
 
                     QGCLabel {
                         Layout.fillWidth: true
                         text: "Тест моторів"
                         font.bold: true
-                        font.pointSize: ScreenTools.mediumFontPointSize
+                        font.pointSize: ScreenTools.defaultFontPointSize
                     }
 
                     QGCLabel {
@@ -277,6 +277,7 @@ Item {
                         color: qgcPal.warningText
                         wrapMode: Text.WordWrap
                         font.bold: true
+                        font.pointSize: ScreenTools.smallFontPointSize
                     }
 
                     QGCCheckBox {
@@ -292,6 +293,7 @@ Item {
 
                         SpinBox {
                             id: motorPercent
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7.5
                             from: 1
                             to: 30
                             value: 5
@@ -302,6 +304,7 @@ Item {
 
                         SpinBox {
                             id: motorSeconds
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7.5
                             from: 1
                             to: 10
                             value: 2
@@ -320,8 +323,8 @@ Item {
                     GridLayout {
                         Layout.fillWidth: true
                         columns: 4
-                        columnSpacing: ScreenTools.defaultFontPixelWidth * 0.5
-                        rowSpacing: ScreenTools.defaultFontPixelHeight * 0.3
+                        columnSpacing: ScreenTools.defaultFontPixelWidth * 0.32
+                        rowSpacing: ScreenTools.defaultFontPixelHeight * 0.2
 
                         Repeater {
                             model: 16
