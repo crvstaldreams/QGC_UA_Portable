@@ -195,7 +195,7 @@ Rectangle {
                     Layout.fillWidth: true
                     text: "Servo/Saf.Mask"
                     checked: currentPage === "servoSafety"
-                    enabled: parametersReady
+                    enabled: parametersReady && activeVehicle && activeVehicle.apmFirmware
                     onClicked: showServoSafety()
                 }
 
