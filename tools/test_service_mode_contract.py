@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SERVICE_MODE = ROOT / "custom" / "qml" / "ServiceMode.qml"
 PARAM_EDITOR = ROOT / "custom" / "qml" / "ServiceParameterEditor.qml"
+SERVO_PAGE = ROOT / "custom" / "qml" / "ServiceServoSafety.qml"
 
 
 class ServiceModeContractTest(unittest.TestCase):
@@ -13,6 +14,7 @@ class ServiceModeContractTest(unittest.TestCase):
     def setUpClass(cls):
         cls.service = SERVICE_MODE.read_text(encoding="utf-8")
         cls.params = PARAM_EDITOR.read_text(encoding="utf-8")
+        cls.servo = SERVO_PAGE.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
         for label in ("Огляд", "Прошивка", "Параметри", "Датчики", "Servo/Saf.Mask", "Реконнект"):
@@ -50,6 +52,11 @@ class ServiceModeContractTest(unittest.TestCase):
 
     def test_servo_safety_page_is_registered_in_service_mode(self):
         self.assertIn("ServiceServoSafety.qml", self.service)
+        self.assertIn("activeVehicle.apmFirmware", self.service)
+        self.assertIn("BRD_SAFETY_MASK", self.servo)
+        self.assertIn("SERVO", self.servo)
+        self.assertIn("activeVehicle.motorTest", self.servo)
+        self.assertIn("СТОП", self.servo)
 
 
 if __name__ == "__main__":
