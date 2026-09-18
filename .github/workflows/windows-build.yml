@@ -133,6 +133,43 @@ jobs:
         shell: cmd
         run: cmake --install "${{ env.BUILD_DIR }}" --config Release
 
+      - name: Verify staged portable runtime
+        shell: pwsh
+        run: |
+          $stagedExe = Join-Path $env:BUILD_DIR "staging\bin\QGroundControl-UA.exe"
+          if (-not (Test-Path $stagedExe)) {
+              throw "Staged executable missing: $stagedExe"
+          }
+
+          $portableRoot = Join-Path (Split-Path $stagedExe -Parent) "PortableData"
+          if (Test-Path $portableRoot) {
+              Remove-Item $portableRoot -Recurse -Force
+          }
+
+          Write-Host "Running staged portable boot test: $stagedExe"
+          $process = Start-Process -FilePath $stagedExe -ArgumentList "--simple-boot-test" -PassThru -Wait
+          if ($process.ExitCode -ne 0) {
+              throw "Staged portable boot test failed with exit code $($process.ExitCode)"
+          }
+
+          $requiredDirs = @("Settings", "Files", "Cache", "Temp", "Config")
+          foreach ($dirName in $requiredDirs) {
+              $dirPath = Join-Path $portableRoot $dirName
+              if (-not (Test-Path $dirPath -PathType Container)) {
+                  throw "Portable directory missing after boot test: $dirPath"
+              }
+          }
+
+          $settingsIni = Get-ChildItem -Path (Join-Path $portableRoot "Settings") -Recurse -File -Filter "*.ini" -ErrorAction SilentlyContinue |
+              Select-Object -First 1
+          if (-not $settingsIni) {
+              throw "Portable QSettings INI file was not created under $portableRoot\Settings"
+          }
+
+          Write-Host "Portable runtime verified."
+          Write-Host "Settings file: $($settingsIni.FullName)"
+          Get-ChildItem -Path $portableRoot -Force | Select-Object Name, FullName
+
       - name: Package installer and portable build
         shell: pwsh
         run: |
@@ -163,6 +200,7 @@ jobs:
               "QGC upstream commit: $env:QGC_COMMIT",
               "Qt: $env:QT_VERSION",
               "GStreamer: $env:GST_VERSION",
+              "Portable data root: bin/PortableData",
               "Runner: $env:RUNNER_OS $env:RUNNER_ARCH",
               "GitHub run: $env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID"
           ) | Set-Content -Path (Join-Path $env:ARTIFACT_DIR "build-metadata.txt") -Encoding utf8
