@@ -47,6 +47,25 @@ try {
     & python $customizer --source-root $QgcRoot
     if ($LASTEXITCODE -ne 0) { throw "apply_qgc_ui_customizations.py failed" }
 
+    Write-Host "=== Apply portable QGC data layout ==="
+    $portableCustomizer = Join-Path $OverlayRoot "tools\apply_qgc_portable_mode.py"
+    & python $portableCustomizer --source-root $QgcRoot
+    if ($LASTEXITCODE -ne 0) { throw "apply_qgc_portable_mode.py failed" }
+
+    Write-Host "=== Verify portable mode markers ==="
+    $qgcApplication = Join-Path $QgcRoot "src\QGCApplication.cc"
+    $appSettings = Join-Path $QgcRoot "src\Settings\AppSettings.cc"
+    $installerScript = Join-Path $QgcRoot "deploy\windows\nullsoft_installer.nsi"
+    if (-not (Select-String -Path $qgcApplication -Pattern 'QGCPortablePaths::initialize\(\)' -Quiet)) {
+        throw "Portable QSettings/cache initialization marker not found"
+    }
+    if (-not (Select-String -Path $appSettings -Pattern 'QGC PORTABLE: force all user files beside the executable' -Quiet)) {
+        throw "Portable AppSettings save path marker not found"
+    }
+    if (-not (Select-String -Path $installerScript -Pattern '\$LOCALAPPDATA\\Programs\\\$\{APPNAME\}' -Quiet)) {
+        throw "Portable per-user installer path marker not found"
+    }
+
     Write-Host "=== Verify customization markers ==="
     $allQml = Get-ChildItem -Path $QgcRoot -Filter *.qml -Recurse -File
     $mainWindow = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'keepOpen \? Popup.CloseOnEscape' -Quiet } | Select-Object -First 1
