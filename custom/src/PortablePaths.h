@@ -2,30 +2,20 @@
 
 #include <QtCore/QCoreApplication>
 #include <QtCore/QDir>
-#include <QtCore/QFileInfo>
 #include <QtCore/QSettings>
 #include <QtCore/QString>
-
-#ifdef Q_OS_WIN
-#include <QtCore/qt_windows.h>
-#endif
 
 namespace QGCPortablePaths
 {
 
 inline QString applicationDir()
 {
-#ifdef Q_OS_WIN
-    static constexpr DWORD kBufferSize = 32768;
-    wchar_t buffer[kBufferSize] = {};
-    const DWORD length = GetModuleFileNameW(nullptr, buffer, kBufferSize);
-    if ((length > 0) && (length < kBufferSize)) {
-        return QFileInfo(QString::fromWCharArray(buffer, static_cast<int>(length))).absolutePath();
-    }
-#endif
-
+    // QGCApplication derives from QApplication, so by the time portable
+    // initialization runs Qt already knows the executable directory.
+    // Deliberately avoid including Windows headers here: rpcndr.h defines
+    // 'interface' as a macro, which collides with upstream QGC identifiers.
     const QString appDir = QCoreApplication::applicationDirPath();
-    return appDir.isEmpty() ? QDir::currentPath() : appDir;
+    return appDir.isEmpty() ? QDir::currentPath() : QDir::cleanPath(appDir);
 }
 
 inline QString ensureDir(const QString &path)
