@@ -15,8 +15,8 @@ class ServiceModeContractTest(unittest.TestCase):
         cls.params = PARAM_EDITOR.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
-        for label in ("Summary", "Firmware", "Параметри", "Sensors"):
-            self.assertIn(f'text: qsTr("{label}")', self.service)
+        for label in ("Огляд", "Прошивка", "Параметри", "Датчики"):
+            self.assertIn(f'text: "{label}"', self.service)
 
     def test_service_panel_contains_live_orientation_map_gps_and_compass(self):
         self.assertIn("QGCAttitudeWidget", self.service)
