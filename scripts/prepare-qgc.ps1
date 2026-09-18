@@ -173,7 +173,6 @@ try {
         'text:\s*"Реконнект"',
         'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
-        'FlightMap',
         'activeVehicle\.gps\.count\.valueString',
         'activeVehicle\.gps\.lock\.enumStringValue',
         'QGCCompassWidget'
@@ -194,7 +193,7 @@ try {
     if (-not (Test-Path $serviceMPParamsQml -PathType Leaf)) {
         throw "ServiceMPParams.qml missing from custom overlay"
     }
-    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'controller\.treeModel')) {
+    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'uiScale:\s*0\.84')) {
         if (-not (Select-String -Path $serviceMPParamsQml -Pattern $mpMarker -Quiet)) {
             throw "MP Params service marker not found: $mpMarker"
         }
@@ -220,7 +219,7 @@ try {
     if (-not (Test-Path $serviceServoQml -PathType Leaf)) {
         throw "ServiceServoSafety.qml missing from custom overlay"
     }
-    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'rawValue = 255', 'rawValue = 65280')) {
+    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'rawValue = 255', 'rawValue = 65280', 'setServoFunction\(output, 0\)')) {
         if (-not (Select-String -Path $serviceServoQml -Pattern $servoMarker -Quiet)) {
             throw "Servo/Safety service marker not found: $servoMarker"
         }
