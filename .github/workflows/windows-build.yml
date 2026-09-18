@@ -50,6 +50,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Test Ukrainian localization rules
+        shell: pwsh
+        working-directory: ${{ github.workspace }}\tools
+        run: python -m unittest -v test_localization_rules.py
+
       - name: Cache Ukrainian translations
         uses: actions/cache@v4
         with:
