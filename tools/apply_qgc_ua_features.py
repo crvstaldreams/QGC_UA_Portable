@@ -320,6 +320,7 @@ def patch_splash(root: Path) -> Path:
     if (!simpleBootTest && !runUnitTests) {
         (void) QFontDatabase::addApplicationFont(":/fonts/play-regular");
         (void) QFontDatabase::addApplicationFont(":/fonts/play-bold");
+        QApplication::setFont(QFont(QStringLiteral("Play")));
 
         QPixmap splashPixmap(720, 400);
         splashPixmap.fill(QColor("#101010"));
