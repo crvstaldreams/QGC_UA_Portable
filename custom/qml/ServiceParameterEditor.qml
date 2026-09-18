@@ -14,8 +14,9 @@ Item {
 
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property Fact selectedFact: Fact { }
-    property bool hasSelectedFact: selectedFact && selectedFact.componentId > 0
-    property real rowHeight: ScreenTools.defaultFontPixelHeight * 2.15
+    property bool hasSelectedFact: selectedFact && selectedFact.name !== ""
+    property real rowHeight: ScreenTools.defaultFontPixelHeight * 2.1
+    property string treeQuery: ""
 
     QGCPalette {
         id: qgcPal
@@ -35,6 +36,51 @@ Item {
         }
     }
 
+    function applyTreeQuery(query) {
+        root.treeQuery = query
+        searchText.text = query
+        controller.searchText = query
+    }
+
+    ListModel {
+        id: serviceTreeModel
+
+        ListElement { title: "ВСІ ПАРАМЕТРИ"; query: ""; header: false; level: 0 }
+
+        ListElement { title: "СИСТЕМА / ПЛАТА"; query: ""; header: true; level: 0 }
+        ListElement { title: "Board (BRD_)"; query: "BRD_"; header: false; level: 1 }
+        ListElement { title: "Safety (BRD_SAFETY)"; query: "BRD_SAFETY"; header: false; level: 1 }
+        ListElement { title: "Serial / TELEM (SERIAL_)"; query: "SERIAL_"; header: false; level: 1 }
+        ListElement { title: "Живлення (BATT_)"; query: "BATT_"; header: false; level: 1 }
+
+        ListElement { title: "ДАТЧИКИ"; query: ""; header: true; level: 0 }
+        ListElement { title: "GPS"; query: "GPS_"; header: false; level: 1 }
+        ListElement { title: "Компас"; query: "COMPASS_"; header: false; level: 1 }
+        ListElement { title: "INS / IMU"; query: "INS_"; header: false; level: 1 }
+        ListElement { title: "EKF3"; query: "EK3_"; header: false; level: 1 }
+        ListElement { title: "AHRS"; query: "AHRS_"; header: false; level: 1 }
+
+        ListElement { title: "ВИХОДИ / КЕРУВАННЯ"; query: ""; header: true; level: 0 }
+        ListElement { title: "Servo outputs"; query: "SERVO"; header: false; level: 1 }
+        ListElement { title: "Motors"; query: "MOT_"; header: false; level: 1 }
+        ListElement { title: "RC"; query: "RC"; header: false; level: 1 }
+        ListElement { title: "Attitude control"; query: "ATC_"; header: false; level: 1 }
+        ListElement { title: "Arming"; query: "ARMING_"; header: false; level: 1 }
+        ListElement { title: "Failsafe"; query: "FS_"; header: false; level: 1 }
+
+        ListElement { title: "НАВІГАЦІЯ"; query: ""; header: true; level: 0 }
+        ListElement { title: "Waypoint navigation"; query: "WPNAV_"; header: false; level: 1 }
+        ListElement { title: "Loiter"; query: "LOIT_"; header: false; level: 1 }
+        ListElement { title: "RTL"; query: "RTL_"; header: false; level: 1 }
+        ListElement { title: "Landing"; query: "LAND_"; header: false; level: 1 }
+        ListElement { title: "Position control"; query: "PSC_"; header: false; level: 1 }
+
+        ListElement { title: "СЕРВІС"; query: ""; header: true; level: 0 }
+        ListElement { title: "Logging"; query: "LOG_"; header: false; level: 1 }
+        ListElement { title: "Notifications"; query: "NTF_"; header: false; level: 1 }
+        ListElement { title: "OSD"; query: "OSD_"; header: false; level: 1 }
+    }
+
     ColumnLayout {
         anchors.fill: parent
         spacing: ScreenTools.defaultFontPixelHeight / 2
@@ -45,17 +91,19 @@ Item {
 
             QGCTextField {
                 id: searchText
-                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 24
-                placeholderText: qsTr("Пошук за назвою або описом")
-                onDisplayTextChanged: controller.searchText = displayText
+                Layout.fillWidth: true
+                placeholderText: qsTr("Пошук параметра")
+                onDisplayTextChanged: {
+                    controller.searchText = displayText
+                    if (displayText !== root.treeQuery) {
+                        root.treeQuery = ""
+                    }
+                }
             }
 
             QGCButton {
                 text: qsTr("Очистити")
-                onClicked: {
-                    searchText.text = ""
-                    controller.searchText = ""
-                }
+                onClicked: root.applyTreeQuery("")
             }
 
             QGCCheckBox {
@@ -63,10 +111,6 @@ Item {
                 checked: controller.showModifiedOnly
                 visible: root.activeVehicle && root.activeVehicle.px4Firmware
                 onClicked: controller.showModifiedOnly = checked
-            }
-
-            Item {
-                Layout.fillWidth: true
             }
 
             QGCButton {
@@ -81,7 +125,7 @@ Item {
             spacing: ScreenTools.defaultFontPixelWidth
 
             Rectangle {
-                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 23
+                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 25
                 Layout.fillHeight: true
                 radius: ScreenTools.defaultFontPixelWidth / 3
                 color: qgcPal.window
@@ -89,58 +133,54 @@ Item {
                 QGCFlickable {
                     anchors.fill: parent
                     anchors.margins: ScreenTools.defaultFontPixelWidth / 2
-                    contentHeight: categoryColumn.height
+                    contentWidth: width
+                    contentHeight: treeColumn.height
                     flickableDirection: Flickable.VerticalFlick
                     clip: true
 
-                    ColumnLayout {
-                        id: categoryColumn
+                    Column {
+                        id: treeColumn
                         width: parent.width
-                        spacing: ScreenTools.defaultFontPixelHeight / 4
+                        spacing: ScreenTools.defaultFontPixelHeight * 0.18
 
                         QGCLabel {
-                            Layout.fillWidth: true
+                            width: parent.width
                             text: qsTr("Дерево параметрів")
                             font.bold: true
                             font.pointSize: ScreenTools.mediumFontPointSize
+                            bottomPadding: ScreenTools.defaultFontPixelHeight * 0.25
                         }
 
                         Repeater {
-                            model: controller.categories
+                            model: serviceTreeModel
 
-                            Column {
-                                Layout.fillWidth: true
-                                spacing: ScreenTools.defaultFontPixelHeight / 4
+                            Item {
+                                width: treeColumn.width
+                                height: header
+                                        ? treeHeader.implicitHeight + ScreenTools.defaultFontPixelHeight * 0.45
+                                        : root.rowHeight
 
-                                SectionHeader {
-                                    id: categoryHeader
-                                    width: parent.width
-                                    text: object.name
-                                    checked: object === controller.currentCategory
-
-                                    onCheckedChanged: {
-                                        if (checked) {
-                                            controller.currentCategory = object
-                                        }
-                                    }
+                                QGCLabel {
+                                    id: treeHeader
+                                    visible: header
+                                    anchors.left: parent.left
+                                    anchors.right: parent.right
+                                    anchors.bottom: parent.bottom
+                                    text: title
+                                    font.bold: true
+                                    font.pointSize: ScreenTools.smallFontPointSize
+                                    color: qgcPal.text
                                 }
 
-                                Repeater {
-                                    model: categoryHeader.checked ? object.groups : 0
-
-                                    QGCButton {
-                                        width: categoryHeader.width
-                                        height: root.rowHeight
-                                        text: object.name
-                                        checkable: true
-                                        autoExclusive: true
-                                        checked: object === controller.currentGroup
-
-                                        onClicked: {
-                                            checked = true
-                                            controller.currentGroup = object
-                                        }
-                                    }
+                                QGCButton {
+                                    visible: !header
+                                    anchors.fill: parent
+                                    anchors.leftMargin: level * ScreenTools.defaultFontPixelWidth * 1.2
+                                    text: title
+                                    checkable: true
+                                    checked: root.treeQuery === query &&
+                                             (query !== "" || index === 0)
+                                    onClicked: root.applyTreeQuery(query)
                                 }
                             }
                         }
@@ -151,7 +191,29 @@ Item {
             ColumnLayout {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: ScreenTools.defaultFontPixelHeight / 2
+                spacing: ScreenTools.defaultFontPixelHeight * 0.3
+
+                RowLayout {
+                    Layout.fillWidth: true
+
+                    QGCLabel {
+                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 22
+                        text: qsTr("Параметр")
+                        font.bold: true
+                    }
+
+                    QGCLabel {
+                        Layout.fillWidth: true
+                        text: qsTr("Значення")
+                        font.bold: true
+                    }
+
+                    QGCButton {
+                        text: qsTr("Редагувати")
+                        enabled: root.hasSelectedFact && !root.selectedFact.readOnly
+                        onClicked: editorDialogComponent.createObject(mainWindow).open()
+                    }
+                }
 
                 Rectangle {
                     Layout.fillWidth: true
@@ -170,37 +232,38 @@ Item {
 
                         delegate: Rectangle {
                             implicitWidth: column === 0
-                                           ? ScreenTools.defaultFontPixelWidth * 18
+                                           ? ScreenTools.defaultFontPixelWidth * 22
                                            : (column === 1
-                                              ? ScreenTools.defaultFontPixelWidth * 15
-                                              : ScreenTools.defaultFontPixelWidth * 34)
-                            implicitHeight: Math.max(root.rowHeight, cellLabel.implicitHeight + ScreenTools.defaultFontPixelHeight / 2)
+                                              ? Math.max(ScreenTools.defaultFontPixelWidth * 24,
+                                                         tableView.width - ScreenTools.defaultFontPixelWidth * 25)
+                                              : 0)
+                            implicitHeight: column < 2 ? root.rowHeight : 0
+                            visible: column < 2
                             color: root.hasSelectedFact && fact === root.selectedFact
                                    ? qgcPal.buttonHighlight
                                    : (row % 2 ? qgcPal.windowShade : qgcPal.window)
 
                             QGCLabel {
-                                id: cellLabel
                                 anchors.fill: parent
                                 anchors.margins: ScreenTools.defaultFontPixelWidth / 3
                                 text: column === 1 ? valueText() : display
                                 color: root.hasSelectedFact && fact === root.selectedFact
                                        ? qgcPal.buttonHighlightText
                                        : qgcPal.text
-                                wrapMode: column === 2 ? Text.WordWrap : Text.NoWrap
-                                elide: column === 2 ? Text.ElideNone : Text.ElideRight
+                                elide: Text.ElideRight
+                                verticalAlignment: Text.AlignVCenter
 
                                 function valueText() {
                                     if (!fact) {
                                         return ""
                                     }
-                                    if (fact.enumStrings.length === 0) {
-                                        return fact.valueString + (fact.units === "" ? "" : " " + fact.units)
-                                    }
                                     if (fact.bitmaskStrings.length !== 0) {
                                         return fact.selectedBitmaskStrings.join(", ")
                                     }
-                                    return fact.enumStringValue
+                                    if (fact.enumStrings.length !== 0) {
+                                        return fact.enumStringValue
+                                    }
+                                    return fact.valueString + (fact.units === "" ? "" : " " + fact.units)
                                 }
                             }
 
@@ -209,86 +272,9 @@ Item {
                                 onClicked: root.selectedFact = fact
                                 onDoubleClicked: {
                                     root.selectedFact = fact
-                                    editorDialogComponent.createObject(mainWindow).open()
-                                }
-                            }
-                        }
-                    }
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 13
-                    radius: ScreenTools.defaultFontPixelWidth / 3
-                    color: qgcPal.window
-
-                    ColumnLayout {
-                        anchors.fill: parent
-                        anchors.margins: ScreenTools.defaultFontPixelWidth
-                        spacing: ScreenTools.defaultFontPixelHeight / 3
-
-                        RowLayout {
-                            Layout.fillWidth: true
-
-                            QGCLabel {
-                                Layout.fillWidth: true
-                                text: root.hasSelectedFact ? root.selectedFact.name : qsTr("Виберіть параметр")
-                                font.bold: true
-                                font.pointSize: ScreenTools.mediumFontPointSize
-                            }
-
-                            QGCButton {
-                                text: qsTr("Редагувати")
-                                enabled: root.hasSelectedFact && !root.selectedFact.readOnly
-                                onClicked: editorDialogComponent.createObject(mainWindow).open()
-                            }
-                        }
-
-                        QGCFlickable {
-                            Layout.fillWidth: true
-                            Layout.fillHeight: true
-                            contentHeight: descriptionColumn.height
-                            flickableDirection: Flickable.VerticalFlick
-                            clip: true
-
-                            ColumnLayout {
-                                id: descriptionColumn
-                                width: parent.width
-                                spacing: ScreenTools.defaultFontPixelHeight / 3
-
-                                QGCLabel {
-                                    width: parent.width
-                                    wrapMode: Text.WordWrap
-                                    text: root.hasSelectedFact
-                                          ? (root.selectedFact.longDescription !== ""
-                                             ? root.selectedFact.longDescription
-                                             : root.selectedFact.shortDescription)
-                                          : qsTr("Тут відображатиметься призначення параметра, допустимий діапазон і типове значення.")
-                                }
-
-                                QGCLabel {
-                                    visible: root.hasSelectedFact
-                                    text: root.hasSelectedFact
-                                          ? qsTr("Поточне: %1 %2").arg(root.selectedFact.valueString).arg(root.selectedFact.units)
-                                          : ""
-                                    font.bold: true
-                                }
-
-                                QGCLabel {
-                                    visible: root.hasSelectedFact
-                                    text: root.hasSelectedFact
-                                          ? qsTr("Мін.: %1    Макс.: %2    Типове: %3")
-                                                .arg(root.selectedFact.minString)
-                                                .arg(root.selectedFact.maxString)
-                                                .arg(root.selectedFact.defaultValueAvailable ? root.selectedFact.defaultValueString : "—")
-                                          : ""
-                                    wrapMode: Text.WordWrap
-                                }
-
-                                QGCLabel {
-                                    visible: root.hasSelectedFact && root.selectedFact.vehicleRebootRequired
-                                    text: qsTr("Після зміни потрібне перезавантаження борту.")
-                                    color: qgcPal.warningText
+                                    if (!fact.readOnly) {
+                                        editorDialogComponent.createObject(mainWindow).open()
+                                    }
                                 }
                             }
                         }
