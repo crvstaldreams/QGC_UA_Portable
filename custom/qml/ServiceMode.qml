@@ -286,14 +286,15 @@ Rectangle {
         Rectangle {
             id: serviceInfoPanel
 
-            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 44
+            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 32
             Layout.fillHeight: true
             radius: ScreenTools.defaultFontPixelWidth / 2
             color: qgcPal.windowShade
 
-            readonly property real instrumentSize: Math.min(
-                                                       ScreenTools.defaultFontPixelHeight * 8.0,
-                                                       (width - ScreenTools.defaultFontPixelWidth * 5) / 2)
+            readonly property real attitudeSize: Math.min(
+                                                     ScreenTools.defaultFontPixelHeight * 6.2,
+                                                     width * 0.46)
+            readonly property real compassSize: attitudeSize * 0.5
 
             ColumnLayout {
                 anchors.fill: parent
@@ -321,7 +322,7 @@ Rectangle {
 
                         QGCAttitudeWidget {
                             Layout.alignment: Qt.AlignHCenter
-                            size: serviceInfoPanel.instrumentSize
+                            size: serviceInfoPanel.attitudeSize
                             vehicle: activeVehicle
                             showPitch: true
                             showHeading: true
@@ -351,7 +352,7 @@ Rectangle {
 
                         QGCCompassWidget {
                             Layout.alignment: Qt.AlignHCenter
-                            size: serviceInfoPanel.instrumentSize
+                            size: serviceInfoPanel.compassSize
                             vehicle: activeVehicle
                             usedByMultipleVehicleList: false
                         }
@@ -375,8 +376,8 @@ Rectangle {
 
                 Rectangle {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 8.0
-                    Layout.minimumHeight: ScreenTools.defaultFontPixelHeight * 6.5
+                    Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 5.8
+                    Layout.minimumHeight: ScreenTools.defaultFontPixelHeight * 4.8
                     radius: ScreenTools.defaultFontPixelWidth / 3
                     color: qgcPal.window
                     clip: true
@@ -433,10 +434,10 @@ Rectangle {
                     GridLayout {
                         id: gpsGrid
                         anchors.fill: parent
-                        anchors.margins: ScreenTools.defaultFontPixelWidth * 0.6
+                        anchors.margins: ScreenTools.defaultFontPixelWidth * 0.45
                         columns: 4
-                        columnSpacing: ScreenTools.defaultFontPixelWidth * 0.7
-                        rowSpacing: ScreenTools.defaultFontPixelHeight * 0.12
+                        columnSpacing: ScreenTools.defaultFontPixelWidth * 0.4
+                        rowSpacing: ScreenTools.defaultFontPixelHeight * 0.08
 
                         QGCLabel { text: "Супутники:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
                         QGCLabel { text: activeVehicle ? activeVehicle.gps.count.valueString : "—"; font.pointSize: ScreenTools.smallFontPointSize }
