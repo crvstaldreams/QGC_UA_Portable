@@ -7,5 +7,6 @@
         <file alias="ServiceMode.qml">qml/ServiceMode.qml</file>
         <file alias="ServiceParameterEditor.qml">qml/ServiceParameterEditor.qml</file>
         <file alias="ServiceServoSafety.qml">qml/ServiceServoSafety.qml</file>
+        <file alias="ServiceMavlinkStatus.qml">qml/ServiceMavlinkStatus.qml</file>
     </qresource>
 </RCC>
