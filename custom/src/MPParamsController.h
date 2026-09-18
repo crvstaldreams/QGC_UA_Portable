@@ -118,7 +118,7 @@ public:
     QHash<int, QByteArray> roleNames() const override;
 };
 
-class MPParamsController final : public FactPanelController
+class MPParamsController : public FactPanelController
 {
     Q_OBJECT
 
