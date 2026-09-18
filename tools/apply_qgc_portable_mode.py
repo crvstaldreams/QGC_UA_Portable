@@ -21,6 +21,8 @@ PATH_REPLACEMENTS = {
     "QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)": "QGCPortablePaths::filesDir()",
     "QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)": "QGCPortablePaths::filesDir()",
     "QStandardPaths::writableLocation(QStandardPaths::DownloadLocation)": "QGCPortablePaths::filesDir()",
+    'QDir::homePath() + QStringLiteral("/.qgcmapscache/")':
+        'QDir(QGCPortablePaths::cacheDir()).filePath(QStringLiteral("QGCMapsFallback"))',
 }
 
 
