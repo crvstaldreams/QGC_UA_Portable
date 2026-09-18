@@ -77,6 +77,11 @@ class ServiceModeContractTest(unittest.TestCase):
         for marker in ("_parseMpFile", "separator(QStringLiteral(\"[,\\\\s]+\"))", "stream << name << ',' << value", "writePending", "_rebuildTree"):
             self.assertIn(marker, self.mp_controller)
 
+    def test_service_mavlink_status_has_vertical_scrolling(self):
+        self.assertIn("ScrollView {", self.mavlink)
+        self.assertIn("ScrollBar.vertical.policy: ScrollBar.AlwaysOn", self.mavlink)
+        self.assertIn("messagePanelMinHeight: mavlinkStatusScroll.availableHeight", self.mavlink)
+
     def test_service_mavlink_status_refreshes_every_five_seconds(self):
         self.assertIn("ServiceMavlinkStatus.qml", self.service)
         self.assertIn("interval: 5000", self.mavlink)
