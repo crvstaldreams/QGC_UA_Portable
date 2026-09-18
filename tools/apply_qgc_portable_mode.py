@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import sys
 from pathlib import Path
 
@@ -36,7 +37,7 @@ def _replace_standard_paths(source_root: Path) -> list[Path]:
     changed: list[Path] = []
     src_root = source_root / "src"
     for path in sorted(src_root.rglob("*")):
-        if path.suffix.lower() not in {".cc", ".cpp", ".cxx", ".h", ".hpp"}:
+        if path.suffix.lower() not in {".cc", ".cpp", ".cxx"}:
             continue
 
         text = path.read_text(encoding="utf-8")
@@ -55,6 +56,15 @@ def _replace_standard_paths(source_root: Path) -> list[Path]:
 
     if not changed:
         raise PortableModeError("No QStandardPaths writable locations were patched")
+
+    portable_header = source_root / "custom" / "src" / "PortablePaths.h"
+    if not portable_header.is_file():
+        raise PortableModeError(f"PortablePaths.h missing: {portable_header}")
+
+    for source_file in changed:
+        local_header = source_file.parent / "PortablePaths.h"
+        shutil.copy2(portable_header, local_header)
+
     return changed
 
 
