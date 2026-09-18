@@ -11,6 +11,7 @@ set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
 set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/qgc_custom_resources.qrc
     CACHE INTERNAL "" FORCE
 )
 
