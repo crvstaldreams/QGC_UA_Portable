@@ -211,7 +211,7 @@ try {
     if (-not (Test-Path $serviceMavlinkQml -PathType Leaf)) {
         throw "ServiceMavlinkStatus.qml missing from custom overlay"
     }
-    foreach ($mavMarker in @('interval:\s*5000', 'messageFontPointSize:.*1\.60', 'refreshMessages\(\)')) {
+    foreach ($mavMarker in @('interval:\s*5000', 'messageFontPointSize:.*1\.60', 'refreshMessages\(\)', 'ScrollBar\.vertical\.policy:\s*ScrollBar\.AlwaysOn')) {
         if (-not (Select-String -Path $serviceMavlinkQml -Pattern $mavMarker -Quiet)) {
             throw "Service MAVLink Status marker not found: $mavMarker"
         }
