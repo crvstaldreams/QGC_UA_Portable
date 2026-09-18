@@ -1,4 +1,7 @@
 #include "CustomPlugin.h"
+#include "MPParamsController.h"
+
+#include <QtQml/qqml.h>
 
 #include <QtCore/QApplicationStatic>
 
@@ -7,6 +10,7 @@ Q_APPLICATION_STATIC(CustomPlugin, s_customPluginInstance);
 CustomPlugin::CustomPlugin(QObject *parent)
     : QGCCorePlugin(parent)
 {
+    qmlRegisterType<MPParamsController>("QGroundControl.Custom", 1, 0, "MPParamsController");
 }
 
 QGCCorePlugin *CustomPlugin::instance()
