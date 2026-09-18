@@ -193,6 +193,7 @@ private:
 
     QStringList _allParameterNames() const;
     Fact* _factForName(const QString& name) const;
+    void _attachVehicle(Vehicle* vehicle);
     void _rebuildTree();
     void _rebuildTable();
     void _loadFavorites();
