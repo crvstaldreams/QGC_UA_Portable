@@ -214,172 +214,205 @@ Rectangle {
         }
 
         Rectangle {
-            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 30
+            id: serviceInfoPanel
+
+            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 44
             Layout.fillHeight: true
             radius: ScreenTools.defaultFontPixelWidth / 2
             color: qgcPal.windowShade
 
-            QGCFlickable {
-                id: serviceInfoScroll
+            readonly property real instrumentSize: Math.min(
+                                                       ScreenTools.defaultFontPixelHeight * 8.0,
+                                                       (width - ScreenTools.defaultFontPixelWidth * 5) / 2)
+
+            ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: ScreenTools.defaultFontPixelWidth * 0.75
-                contentWidth: width
-                contentHeight: inspectorColumn.height
-                flickableDirection: Flickable.VerticalFlick
-                clip: true
+                anchors.margins: ScreenTools.defaultFontPixelWidth * 0.65
+                spacing: ScreenTools.defaultFontPixelHeight * 0.35
 
-                Column {
-                    id: inspectorColumn
-                    width: serviceInfoScroll.width
-                    spacing: ScreenTools.defaultFontPixelHeight * 0.75
+                // Keep attitude and compass side-by-side. This saves enough
+                // vertical space to keep the full service telemetry panel on
+                // one screen without scrolling.
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: ScreenTools.defaultFontPixelWidth
 
-                    QGCLabel {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "Положення польотника"
-                        font.pointSize: ScreenTools.mediumFontPointSize
-                        font.bold: true
-                    }
-
-                    QGCAttitudeWidget {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        size: Math.min(inspectorColumn.width * 0.72, ScreenTools.defaultFontPixelHeight * 14)
-                        vehicle: activeVehicle
-                        showPitch: true
-                        showHeading: true
-                    }
-
-                    RowLayout {
-                        width: parent.width
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: ScreenTools.defaultFontPixelHeight * 0.15
 
                         QGCLabel {
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
-                            text: "Крен\n%1°".arg(activeVehicle ? activeVehicle.roll.rawValue.toFixed(1) : "—")
+                            text: "Положення польотника"
+                            font.bold: true
+                            font.pointSize: ScreenTools.smallFontPointSize
+                        }
+
+                        QGCAttitudeWidget {
+                            Layout.alignment: Qt.AlignHCenter
+                            size: serviceInfoPanel.instrumentSize
+                            vehicle: activeVehicle
+                            showPitch: true
+                            showHeading: true
                         }
 
                         QGCLabel {
                             Layout.fillWidth: true
                             horizontalAlignment: Text.AlignHCenter
-                            text: "Тангаж\n%1°".arg(activeVehicle ? activeVehicle.pitch.rawValue.toFixed(1) : "—")
+                            text: "Крен %1°   Тангаж %2°"
+                                  .arg(activeVehicle ? activeVehicle.roll.rawValue.toFixed(1) : "—")
+                                  .arg(activeVehicle ? activeVehicle.pitch.rawValue.toFixed(1) : "—")
+                            font.pointSize: ScreenTools.smallFontPointSize
                         }
                     }
 
-                    QGCLabel {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "Міні-карта"
-                        font.bold: true
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: ScreenTools.defaultFontPixelHeight * 0.15
+
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "Компас"
+                            font.bold: true
+                            font.pointSize: ScreenTools.smallFontPointSize
+                        }
+
+                        QGCCompassWidget {
+                            Layout.alignment: Qt.AlignHCenter
+                            size: serviceInfoPanel.instrumentSize
+                            vehicle: activeVehicle
+                            usedByMultipleVehicleList: false
+                        }
+
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            horizontalAlignment: Text.AlignHCenter
+                            text: "Курс %1°".arg(activeVehicle ? activeVehicle.heading.rawValue.toFixed(0) : "—")
+                            font.pointSize: ScreenTools.smallFontPointSize
+                        }
                     }
+                }
 
-                    Rectangle {
-                        width: parent.width
-                        height: Math.max(ScreenTools.defaultFontPixelHeight * 10, width * 0.55)
-                        radius: ScreenTools.defaultFontPixelWidth / 3
-                        color: qgcPal.window
-                        clip: true
+                QGCLabel {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "Міні-карта"
+                    font.bold: true
+                    font.pointSize: ScreenTools.smallFontPointSize
+                }
 
-                        FlightMap {
-                            id: miniMap
-                            anchors.fill: parent
-                            mapName: "serviceMiniMap"
-                            allowGCSLocationCenter: false
-                            allowVehicleLocationCenter: true
-                            planView: false
-                            zoomLevel: 16
-                            center: activeVehicle && activeVehicle.coordinate.isValid
-                                    ? activeVehicle.coordinate
-                                    : QGroundControl.flightMapPosition
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 8.0
+                    Layout.minimumHeight: ScreenTools.defaultFontPixelHeight * 6.5
+                    radius: ScreenTools.defaultFontPixelWidth / 3
+                    color: qgcPal.window
+                    clip: true
 
-                            MapQuickItem {
-                                visible: activeVehicle && activeVehicle.coordinate.isValid
-                                coordinate: activeVehicle ? activeVehicle.coordinate : QtPositioning.coordinate()
-                                anchorPoint.x: vehicleArrow.width / 2
-                                anchorPoint.y: vehicleArrow.height / 2
+                    FlightMap {
+                        id: miniMap
+                        anchors.fill: parent
+                        mapName: "serviceMiniMap"
+                        allowGCSLocationCenter: false
+                        allowVehicleLocationCenter: true
+                        planView: false
+                        zoomLevel: 16
+                        center: activeVehicle && activeVehicle.coordinate.isValid
+                                ? activeVehicle.coordinate
+                                : QGroundControl.flightMapPosition
 
-                                sourceItem: Image {
-                                    id: vehicleArrow
-                                    width: ScreenTools.defaultFontPixelHeight * 2.2
-                                    height: width
-                                    source: "/res/QGCLogoArrow.svg"
-                                    mipmap: true
-                                    fillMode: Image.PreserveAspectFit
-                                    transform: Rotation {
-                                        origin.x: vehicleArrow.width / 2
-                                        origin.y: vehicleArrow.height / 2
-                                        angle: activeVehicle ? activeVehicle.heading.rawValue : 0
-                                    }
+                        MapQuickItem {
+                            visible: activeVehicle && activeVehicle.coordinate.isValid
+                            coordinate: activeVehicle ? activeVehicle.coordinate : QtPositioning.coordinate()
+                            anchorPoint.x: vehicleArrow.width / 2
+                            anchorPoint.y: vehicleArrow.height / 2
+
+                            sourceItem: Image {
+                                id: vehicleArrow
+                                width: ScreenTools.defaultFontPixelHeight * 2.0
+                                height: width
+                                source: "/res/QGCLogoArrow.svg"
+                                mipmap: true
+                                fillMode: Image.PreserveAspectFit
+                                transform: Rotation {
+                                    origin.x: vehicleArrow.width / 2
+                                    origin.y: vehicleArrow.height / 2
+                                    angle: activeVehicle ? activeVehicle.heading.rawValue : 0
                                 }
                             }
                         }
                     }
+                }
 
-                    QGCLabel {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "GPS"
-                        font.bold: true
-                    }
+                QGCLabel {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "GPS"
+                    font.bold: true
+                    font.pointSize: ScreenTools.smallFontPointSize
+                }
 
-                    Rectangle {
-                        width: parent.width
-                        height: gpsGrid.implicitHeight + (ScreenTools.defaultFontPixelHeight * 1.5)
-                        radius: ScreenTools.defaultFontPixelWidth / 3
-                        color: qgcPal.window
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: gpsGrid.implicitHeight + ScreenTools.defaultFontPixelHeight * 0.8
+                    radius: ScreenTools.defaultFontPixelWidth / 3
+                    color: qgcPal.window
 
-                        GridLayout {
-                            id: gpsGrid
-                            anchors.fill: parent
-                            anchors.margins: ScreenTools.defaultFontPixelWidth
-                            columns: 2
-                            columnSpacing: ScreenTools.defaultFontPixelWidth
-                            rowSpacing: ScreenTools.defaultFontPixelHeight / 4
+                    GridLayout {
+                        id: gpsGrid
+                        anchors.fill: parent
+                        anchors.margins: ScreenTools.defaultFontPixelWidth * 0.6
+                        columns: 4
+                        columnSpacing: ScreenTools.defaultFontPixelWidth * 0.7
+                        rowSpacing: ScreenTools.defaultFontPixelHeight * 0.12
 
-                            QGCLabel { text: "Супутники:"; font.bold: true }
-                            QGCLabel { text: activeVehicle ? activeVehicle.gps.count.valueString : "—" }
+                        QGCLabel { text: "Супутники:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: activeVehicle ? activeVehicle.gps.count.valueString : "—"; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: "GPS Fix:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            text: activeVehicle ? activeVehicle.gps.lock.enumStringValue : "—"
+                            font.pointSize: ScreenTools.smallFontPointSize
+                            elide: Text.ElideRight
+                        }
 
-                            QGCLabel { text: "GPS Fix:"; font.bold: true }
-                            QGCLabel { text: activeVehicle ? activeVehicle.gps.lock.enumStringValue : "—" }
+                        QGCLabel { text: "HDOP:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: activeVehicle ? activeVehicle.gps.hdop.valueString : "—"; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: "VDOP:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: activeVehicle ? activeVehicle.gps.vdop.valueString : "—"; font.pointSize: ScreenTools.smallFontPointSize }
 
-                            QGCLabel { text: "HDOP:"; font.bold: true }
-                            QGCLabel { text: activeVehicle ? activeVehicle.gps.hdop.valueString : "—" }
+                        QGCLabel { text: "Курс GPS:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: activeVehicle ? activeVehicle.gps.courseOverGround.valueString + "°" : "—"; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel { text: "Висота:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel {
+                            text: activeVehicle && activeVehicle.coordinate.isValid
+                                  ? activeVehicle.coordinate.altitude.toFixed(1) + " м"
+                                  : "—"
+                            font.pointSize: ScreenTools.smallFontPointSize
+                        }
 
-                            QGCLabel { text: "VDOP:"; font.bold: true }
-                            QGCLabel { text: activeVehicle ? activeVehicle.gps.vdop.valueString : "—" }
-
-                            QGCLabel { text: "Курс GPS:"; font.bold: true }
-                            QGCLabel { text: activeVehicle ? activeVehicle.gps.courseOverGround.valueString + "°" : "—" }
-
-                            QGCLabel { text: "Широта:"; font.bold: true }
-                            QGCLabel { text: activeVehicle && activeVehicle.coordinate.isValid ? activeVehicle.coordinate.latitude.toFixed(6) : "—" }
-
-                            QGCLabel { text: "Довгота:"; font.bold: true }
-                            QGCLabel { text: activeVehicle && activeVehicle.coordinate.isValid ? activeVehicle.coordinate.longitude.toFixed(6) : "—" }
-
-                            QGCLabel { text: "Висота:"; font.bold: true }
-                            QGCLabel { text: activeVehicle && activeVehicle.coordinate.isValid ? activeVehicle.coordinate.altitude.toFixed(1) + " м" : "—" }
+                        QGCLabel { text: "Широта:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel {
+                            text: activeVehicle && activeVehicle.coordinate.isValid
+                                  ? activeVehicle.coordinate.latitude.toFixed(6)
+                                  : "—"
+                            font.pointSize: ScreenTools.smallFontPointSize
+                        }
+                        QGCLabel { text: "Довгота:"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            text: activeVehicle && activeVehicle.coordinate.isValid
+                                  ? activeVehicle.coordinate.longitude.toFixed(6)
+                                  : "—"
+                            font.pointSize: ScreenTools.smallFontPointSize
                         }
                     }
+                }
 
-                    QGCLabel {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "Компас"
-                        font.bold: true
-                    }
-
-                    QGCCompassWidget {
-                        anchors.horizontalCenter: parent.horizontalCenter
-                        size: Math.min(inspectorColumn.width * 0.75, ScreenTools.defaultFontPixelHeight * 13)
-                        vehicle: activeVehicle
-                        usedByMultipleVehicleList: false
-                    }
-
-                    QGCLabel {
-                        width: parent.width
-                        horizontalAlignment: Text.AlignHCenter
-                        text: "Курс: %1°".arg(activeVehicle ? activeVehicle.heading.rawValue.toFixed(0) : "—")
-                    }
+                Item {
+                    Layout.fillHeight: true
                 }
             }
         }
