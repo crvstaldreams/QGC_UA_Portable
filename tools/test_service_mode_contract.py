@@ -41,6 +41,13 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("columns: 4", self.service)
         self.assertIn("Крен %1°   Тангаж %2°", self.service)
 
+    def test_service_sidebar_is_compact_and_compass_is_half_size(self):
+        self.assertIn("Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 32", self.service)
+        self.assertIn("compassSize: attitudeSize * 0.5", self.service)
+        self.assertIn("Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 5.8", self.service)
+        self.assertIn("Layout.preferredWidth: parent.width * 0.52", self.servo)
+        self.assertIn("Layout.preferredHeight: visible ? ScreenTools.defaultFontPixelHeight * 1.95 : 0", self.servo)
+
     def test_sensor_component_uses_v508_qvariantlist_and_reconnect_reboots_vehicle(self):
         self.assertIn("components.length", self.service)
         self.assertIn("components[i]", self.service)
