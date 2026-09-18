@@ -15,6 +15,9 @@ class UkrainianLocalizationRulesTest(unittest.TestCase):
             "Рама",
         )
 
+    def test_bare_frame_defaults_to_vehicle_rama(self):
+        self.assertEqual(contextual_override("Frame", "", []), "Рама")
+
     def test_airframe_frame_type_is_typ_ramy(self):
         self.assertEqual(
             contextual_override(
