@@ -202,7 +202,7 @@ try {
     if (-not (Test-Path $mpParamsController -PathType Leaf)) {
         throw "MPParamsController.cc missing from custom overlay"
     }
-    foreach ($mpControllerMarker in @('_parseMpFile', '\[,\\s\]\+', 'writePending', '_rebuildTree', 'stream << name <<')) {
+    foreach ($mpControllerMarker in @('_parseMpFile', 'separator\(QStringLiteral', 'writePending', '_rebuildTree', 'stream << name <<')) {
         if (-not (Select-String -Path $mpParamsController -Pattern $mpControllerMarker -Quiet)) {
             throw "MP Params controller marker not found: $mpControllerMarker"
         }
