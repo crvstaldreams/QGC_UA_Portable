@@ -1,14 +1,10 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import QtLocation
-import QtPositioning
-
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.Palette
 import QGroundControl.ScreenTools
-import QGroundControl.FlightMap
 
 Rectangle {
     id: setupView
@@ -20,6 +16,7 @@ Rectangle {
                                    activeVehicle &&
                                    !activeVehicle.parameterManager.missingParameters
     property var sensorComponent: findSensorComponent()
+    property var mpParamsWindow: null
 
     QGCPalette {
         id: qgcPal
@@ -79,7 +76,25 @@ Rectangle {
     }
 
     function showMPParams() {
-        currentPage = "mpParams"
+        if (mpParamsWindow) {
+            mpParamsWindow.show()
+            mpParamsWindow.raise()
+            mpParamsWindow.requestActivate()
+            return
+        }
+
+        const component = Qt.createComponent("qrc:/qml/QGroundControl/Custom/ServiceMPParamsWindow.qml")
+        if (component.status !== Component.Ready) {
+            console.warn("MP Params window load failed:", component.errorString())
+            return
+        }
+
+        mpParamsWindow = component.createObject(null)
+        if (mpParamsWindow) {
+            mpParamsWindow.show()
+            mpParamsWindow.raise()
+            mpParamsWindow.requestActivate()
+        }
     }
 
     function reconnectVehicle() {
@@ -117,9 +132,6 @@ Rectangle {
         if (currentPage === "mavlinkStatus") {
             return activeVehicle ? "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml" : ""
         }
-        if (currentPage === "mpParams") {
-            return "qrc:/qml/QGroundControl/Custom/ServiceMPParams.qml"
-        }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
         }
@@ -140,9 +152,6 @@ Rectangle {
         }
         if (currentPage === "mavlinkStatus") {
             return "Підключіть борт, щоб відкрити MAVLink Status."
-        }
-        if (currentPage === "mpParams") {
-            return ""
         }
         if (currentPage === "summary") {
             return "Підключіть борт, щоб відкрити огляд."
@@ -230,7 +239,6 @@ Rectangle {
                 QGCButton {
                     Layout.fillWidth: true
                     text: "MP Params"
-                    checked: currentPage === "mpParams"
                     onClicked: showMPParams()
                 }
 
@@ -291,136 +299,19 @@ Rectangle {
             radius: ScreenTools.defaultFontPixelWidth / 2
             color: qgcPal.windowShade
 
-            readonly property real attitudeSize: Math.min(
-                                                     ScreenTools.defaultFontPixelHeight * 6.2,
-                                                     width * 0.46)
-            readonly property real compassSize: attitudeSize * 0.5
+            readonly property real instrumentSize: Math.min(
+                                                       ScreenTools.defaultFontPixelHeight * 7.5,
+                                                       width * 0.72)
 
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: ScreenTools.defaultFontPixelWidth * 0.65
-                spacing: ScreenTools.defaultFontPixelHeight * 0.35
-
-                // Keep attitude and compass side-by-side. This saves enough
-                // vertical space to keep the full service telemetry panel on
-                // one screen without scrolling.
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: ScreenTools.defaultFontPixelWidth
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: ScreenTools.defaultFontPixelHeight * 0.15
-
-                        QGCLabel {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: "Положення польотника"
-                            font.bold: true
-                            font.pointSize: ScreenTools.smallFontPointSize
-                        }
-
-                        QGCAttitudeWidget {
-                            Layout.alignment: Qt.AlignHCenter
-                            size: serviceInfoPanel.attitudeSize
-                            vehicle: activeVehicle
-                            showPitch: true
-                            showHeading: true
-                        }
-
-                        QGCLabel {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: "Крен %1°   Тангаж %2°"
-                                  .arg(activeVehicle ? activeVehicle.roll.rawValue.toFixed(1) : "—")
-                                  .arg(activeVehicle ? activeVehicle.pitch.rawValue.toFixed(1) : "—")
-                            font.pointSize: ScreenTools.smallFontPointSize
-                        }
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: ScreenTools.defaultFontPixelHeight * 0.15
-
-                        QGCLabel {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: "Компас"
-                            font.bold: true
-                            font.pointSize: ScreenTools.smallFontPointSize
-                        }
-
-                        QGCCompassWidget {
-                            Layout.alignment: Qt.AlignHCenter
-                            size: serviceInfoPanel.compassSize
-                            vehicle: activeVehicle
-                            usedByMultipleVehicleList: false
-                        }
-
-                        QGCLabel {
-                            Layout.fillWidth: true
-                            horizontalAlignment: Text.AlignHCenter
-                            text: "Курс %1°".arg(activeVehicle ? activeVehicle.heading.rawValue.toFixed(0) : "—")
-                            font.pointSize: ScreenTools.smallFontPointSize
-                        }
-                    }
-                }
+                spacing: ScreenTools.defaultFontPixelHeight * 0.28
 
                 QGCLabel {
                     Layout.fillWidth: true
                     horizontalAlignment: Text.AlignHCenter
-                    text: "Міні-карта"
-                    font.bold: true
-                    font.pointSize: ScreenTools.smallFontPointSize
-                }
-
-                Rectangle {
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 5.8
-                    Layout.minimumHeight: ScreenTools.defaultFontPixelHeight * 4.8
-                    radius: ScreenTools.defaultFontPixelWidth / 3
-                    color: qgcPal.window
-                    clip: true
-
-                    FlightMap {
-                        id: miniMap
-                        anchors.fill: parent
-                        mapName: "serviceMiniMap"
-                        allowGCSLocationCenter: false
-                        allowVehicleLocationCenter: true
-                        planView: false
-                        zoomLevel: 16
-                        center: activeVehicle && activeVehicle.coordinate.isValid
-                                ? activeVehicle.coordinate
-                                : QGroundControl.flightMapPosition
-
-                        MapQuickItem {
-                            visible: activeVehicle && activeVehicle.coordinate.isValid
-                            coordinate: activeVehicle ? activeVehicle.coordinate : QtPositioning.coordinate()
-                            anchorPoint.x: vehicleArrow.width / 2
-                            anchorPoint.y: vehicleArrow.height / 2
-
-                            sourceItem: Image {
-                                id: vehicleArrow
-                                width: ScreenTools.defaultFontPixelHeight * 2.0
-                                height: width
-                                source: "/res/QGCLogoArrow.svg"
-                                mipmap: true
-                                fillMode: Image.PreserveAspectFit
-                                transform: Rotation {
-                                    origin.x: vehicleArrow.width / 2
-                                    origin.y: vehicleArrow.height / 2
-                                    angle: activeVehicle ? activeVehicle.heading.rawValue : 0
-                                }
-                            }
-                        }
-                    }
-                }
-
-                QGCLabel {
-                    Layout.fillWidth: true
-                    horizontalAlignment: Text.AlignHCenter
-                    text: "GPS"
+                    text: "GPS info"
                     font.bold: true
                     font.pointSize: ScreenTools.smallFontPointSize
                 }
@@ -482,9 +373,54 @@ Rectangle {
                     }
                 }
 
-                Item {
-                    Layout.fillHeight: true
+                QGCLabel {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "Компас"
+                    font.bold: true
+                    font.pointSize: ScreenTools.smallFontPointSize
                 }
+
+                QGCCompassWidget {
+                    Layout.alignment: Qt.AlignHCenter
+                    size: serviceInfoPanel.instrumentSize
+                    vehicle: activeVehicle
+                    usedByMultipleVehicleList: false
+                }
+
+                QGCLabel {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "Курс %1°".arg(activeVehicle ? activeVehicle.heading.rawValue.toFixed(0) : "—")
+                    font.pointSize: ScreenTools.smallFontPointSize
+                }
+
+                QGCLabel {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "Положення польотника"
+                    font.bold: true
+                    font.pointSize: ScreenTools.smallFontPointSize
+                }
+
+                QGCAttitudeWidget {
+                    Layout.alignment: Qt.AlignHCenter
+                    size: serviceInfoPanel.instrumentSize
+                    vehicle: activeVehicle
+                    showPitch: true
+                    showHeading: true
+                }
+
+                QGCLabel {
+                    Layout.fillWidth: true
+                    horizontalAlignment: Text.AlignHCenter
+                    text: "Крен %1°   Тангаж %2°"
+                          .arg(activeVehicle ? activeVehicle.roll.rawValue.toFixed(1) : "—")
+                          .arg(activeVehicle ? activeVehicle.pitch.rawValue.toFixed(1) : "—")
+                    font.pointSize: ScreenTools.smallFontPointSize
+                }
+
+                Item { Layout.fillHeight: true }
             }
         }
     }
