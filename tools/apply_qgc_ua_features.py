@@ -196,10 +196,41 @@ def patch_vehicle_message_list(root: Path) -> Path:
         marker = "    property bool noMessages: messageText.length === 0\n"
         replacement = (
             marker
+            + "    property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle\n"
             + "    property real messagePanelWidth: ScreenTools.defaultFontPixelWidth * 50\n"
             + "    property real messagePanelMinHeight: 0\n"
         )
-        text = replace_once(text, marker, replacement, "MAVLink Status size properties")
+        text = replace_once(text, marker, replacement, "MAVLink Status reusable properties")
+
+    # The stock component depends on an outer _activeVehicle property. Make it
+    # self-contained so it can be reused from the service-mode MAVLink page.
+    text = text.replace("_activeVehicle", "activeVehicle")
+
+    old_completed = '''    Component.onCompleted: {
+        messageText.text = formatMessage(activeVehicle.formattedMessages)
+        if (activeVehicle) {
+            activeVehicle.resetAllMessages()
+        }
+    }
+'''
+    new_completed = '''    function refreshMessages() {
+        messageText.text = activeVehicle ? formatMessage(activeVehicle.formattedMessages) : ""
+    }
+
+    Component.onCompleted: {
+        refreshMessages()
+        if (activeVehicle) {
+            activeVehicle.resetAllMessages()
+        }
+    }
+'''
+    text = replace_once(text, old_completed, new_completed, "MAVLink Status refresh API")
+
+    # Guard clear action when no vehicle is present.
+    text = text.replace(
+        "                activeVehicle.clearMessages()\n                mainWindow.closeIndicatorDrawer()\n",
+        "                if (activeVehicle) {\n                    activeVehicle.clearMessages()\n                    refreshMessages()\n                }\n                mainWindow.closeIndicatorDrawer()\n",
+    )
 
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
@@ -217,93 +248,275 @@ def patch_main_status(root: Path) -> Path:
             "QtCore import for status settings",
         )
 
-    layout_marker = '''        ColumnLayout {
-            id:         mainLayout
-            spacing:    _spacing
+    # Open the status as a dedicated centered modal rather than attached to the
+    # toolbar indicator. keepOpen=true, centerOnWindow=true.
+    text = replace_once(
+        text,
+        "        mainWindow.showIndicatorDrawer(overallStatusComponent, control, true)\n",
+        "        mainWindow.showIndicatorDrawer(overallStatusComponent, null, true, true)\n",
+        "centered MAVLink Status invocation",
+    )
+
+    old_component = '''    Component {
+        id: overallStatusIndicatorPage
+
+        ToolIndicatorPage {
+            showExpand:                         true
+            waitForParameters:                  false
+            expandedComponentWaitForParameters: true
+            contentComponent:                   mainStatusContentComponent
+            expandedComponent:                  mainStatusExpandedComponent
+
+            Component.onCompleted:   mainWindow.suppressCriticalVehicleMessages = true
+            Component.onDestruction: mainWindow.suppressCriticalVehicleMessages = false
+        }
+    }
 '''
-    settings_block = '''        ColumnLayout {
-            id:         mainLayout
-            spacing:    _spacing
+    new_component = '''    Component {
+        id: overallStatusIndicatorPage
+
+        Rectangle {
+            width:  mainWindow.contentItem.width * 0.65
+            height: mainWindow.contentItem.height * 0.65
+            color:  qgcPal.window
+            radius: ScreenTools.defaultBorderRadius
+            border.width: 2
+            border.color: qgcPal.buttonBorder
+
+            property bool _showExpand: false
+
+            Component.onCompleted:   mainWindow.suppressCriticalVehicleMessages = true
+            Component.onDestruction: mainWindow.suppressCriticalVehicleMessages = false
 
             Settings {
-                id:         mavlinkStatusSettings
-                category:   "MAVLinkStatus"
+                id: mavlinkStatusSettings
+                category: "MAVLinkStatus"
 
                 property bool autoCloseEnabled: true
                 property int autoCloseSeconds: 60
             }
 
             Timer {
-                id:         mavlinkStatusCloseTimer
-                interval:   Math.max(5, mavlinkStatusSettings.autoCloseSeconds) * 1000
-                repeat:     false
-                running:    mavlinkStatusSettings.autoCloseEnabled
+                id: mavlinkStatusCloseTimer
+                interval: Math.max(5, mavlinkStatusSettings.autoCloseSeconds) * 1000
+                repeat: false
+                running: mavlinkStatusSettings.autoCloseEnabled
                 onTriggered: mainWindow.closeIndicatorDrawer()
             }
 
+            Timer {
+                interval: 5000
+                repeat: true
+                running: true
+                onTriggered: vehicleMessageList.refreshMessages()
+            }
 
-            RowLayout {
-                spacing: ScreenTools.defaultFontPixelWidth
+            ColumnLayout {
+                anchors.fill: parent
+                anchors.margins: ScreenTools.defaultFontPixelWidth
+                spacing: ScreenTools.defaultFontPixelHeight * 0.5
 
-                QGCLabel {
-                    text: "Автозакриття MAVLink Status:"
-                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: ScreenTools.defaultFontPixelWidth
 
-                QGCComboBox {
-                    id: timeoutCombo
-                    Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 15
+                    QGCLabel {
+                        text: "MAVLink Status"
+                        font.bold: true
+                        font.pointSize: ScreenTools.largeFontPointSize
+                    }
 
-                    property var timeoutValues: [0, 15, 30, 60, 120, 300, 600]
+                    Item { Layout.fillWidth: true }
 
-                    model: [
-                        "Вимкнено",
-                        "15 секунд",
-                        "30 секунд",
-                        "1 хвилина",
-                        "2 хвилини",
-                        "5 хвилин",
-                        "10 хвилин"
-                    ]
+                    QGCLabel {
+                        text: "Оновлення кожні 5 с"
+                    }
 
-                    Component.onCompleted: {
-                        if (!mavlinkStatusSettings.autoCloseEnabled) {
-                            currentIndex = 0
-                        } else {
-                            const index = timeoutValues.indexOf(mavlinkStatusSettings.autoCloseSeconds)
-                            currentIndex = index >= 0 ? index : 3
+                    QGCComboBox {
+                        id: timeoutCombo
+                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 14
+                        property var timeoutValues: [0, 15, 30, 60, 120, 300, 600]
+                        model: [
+                            "Автозакриття вимкн.",
+                            "15 секунд",
+                            "30 секунд",
+                            "1 хвилина",
+                            "2 хвилини",
+                            "5 хвилин",
+                            "10 хвилин"
+                        ]
+
+                        Component.onCompleted: {
+                            if (!mavlinkStatusSettings.autoCloseEnabled) {
+                                currentIndex = 0
+                            } else {
+                                const index = timeoutValues.indexOf(mavlinkStatusSettings.autoCloseSeconds)
+                                currentIndex = index >= 0 ? index : 3
+                            }
+                        }
+
+                        onActivated: (index) => {
+                            const seconds = timeoutValues[index]
+                            mavlinkStatusSettings.autoCloseEnabled = seconds > 0
+                            if (seconds > 0) {
+                                mavlinkStatusSettings.autoCloseSeconds = seconds
+                                mavlinkStatusCloseTimer.restart()
+                            } else {
+                                mavlinkStatusCloseTimer.stop()
+                            }
                         }
                     }
 
-                    onActivated: (index) => {
-                        const seconds = timeoutValues[index]
-                        mavlinkStatusSettings.autoCloseEnabled = seconds > 0
-                        if (seconds > 0) {
-                            mavlinkStatusSettings.autoCloseSeconds = seconds
-                            mavlinkStatusCloseTimer.restart()
-                        } else {
-                            mavlinkStatusCloseTimer.stop()
-                        }
+                    QGCButton {
+                        text: "Закрити"
+                        onClicked: mainWindow.closeIndicatorDrawer()
+                    }
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    color: qgcPal.windowShadeDark
+                    radius: ScreenTools.defaultBorderRadius
+                    border.width: 2
+                    border.color: qgcPal.buttonBorder
+                    clip: true
+
+                    VehicleMessageList {
+                        id: vehicleMessageList
+                        anchors.fill: parent
+                        anchors.margins: ScreenTools.defaultFontPixelWidth * 0.6
+                        activeVehicle: control._activeVehicle
+                        messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60
+                        messagePanelWidth: parent.width
+                        messagePanelMinHeight: parent.height
                     }
                 }
             }
+        }
+    }
 '''
-    text = replace_once(text, layout_marker, settings_block, "MAVLink Status persisted timer")
+    text = replace_once(text, old_component, new_component, "dedicated centered MAVLink Status panel")
 
-    old_list = '''                VehicleMessageList { 
-                    id: vehicleMessageList
-                    messageFontPointSize: ScreenTools.defaultFontPointSize * 1.35
-                }
-'''
-    new_list = '''                VehicleMessageList {
-                    id:                     vehicleMessageList
-                    messageFontPointSize:   ScreenTools.defaultFontPointSize * 1.35
-                    messagePanelWidth:      ScreenTools.defaultFontPixelWidth * 72
-                    messagePanelMinHeight:  ScreenTools.defaultFontPixelHeight * 20
-                }
-'''
-    text = replace_once(text, old_list, new_list, "MAVLink Status timer controls and expanded size")
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
+
+
+def patch_contrast_controls(root: Path) -> list[Path]:
+    changed: list[Path] = []
+
+    # Search/text fields: always-visible yellow border, thicker active-focus
+    # border, and darker fill for stronger separation from the background.
+    text_field = root / "src" / "QmlControls" / "QGCTextField.qml"
+    text = text_field.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "        border.width:   control.validationError ? 2 : (qgcPal.globalTheme === QGCPalette.Light ? 1 : 0)\n"
+        "        border.color:   control.validationError ? qgcPal.colorRed : qgcPal.buttonBorder\n"
+        "        radius:         ScreenTools.defaultBorderRadius\n"
+        "        color:          qgcPal.textField\n",
+        "        border.width:   control.validationError ? 3 : (control.activeFocus ? 3 : 2)\n"
+        "        border.color:   control.validationError ? qgcPal.colorRed : (control.activeFocus ? qgcPal.buttonHighlight : qgcPal.buttonBorder)\n"
+        "        radius:         ScreenTools.defaultBorderRadius\n"
+        "        color:          control.activeFocus ? qgcPal.windowShadeDark : qgcPal.textField\n",
+        "high contrast QGCTextField",
+    )
+    text_field.write_text(text, encoding="utf-8", newline="\n")
+    changed.append(text_field)
+
+    # Apply a consistent dark/yellow high-contrast style to native Qt
+    # ProgressBar controls which do not already define their own background.
+    progress_index = 0
+    for path in root.rglob("*.qml"):
+        if any(part in {".git", "build", "custom"} for part in path.parts):
+            continue
+        try:
+            source = path.read_text(encoding="utf-8")
+        except Exception:
+            continue
+        if "ProgressBar {" not in source:
+            continue
+
+        offset = 0
+        updated = source
+        touched = False
+        while True:
+            pos = updated.find("ProgressBar {", offset)
+            if pos < 0:
+                break
+            open_brace = updated.find("{", pos)
+            depth = 1
+            i = open_brace + 1
+            in_string = False
+            quote = ""
+            escape = False
+            while i < len(updated) and depth:
+                ch = updated[i]
+                if in_string:
+                    if escape:
+                        escape = False
+                    elif ch == "\\":
+                        escape = True
+                    elif ch == quote:
+                        in_string = False
+                else:
+                    if ch in {'"', "'"}:
+                        in_string = True
+                        quote = ch
+                    elif ch == "{":
+                        depth += 1
+                    elif ch == "}":
+                        depth -= 1
+                i += 1
+            if depth != 0:
+                raise FeaturePatchError(f"Unbalanced ProgressBar block in {path}")
+
+            block_end = i
+            block = updated[pos:block_end]
+            if "QGC UA contrast progress style" in block or "background:" in block or "contentItem:" in block:
+                offset = block_end
+                continue
+
+            id_match = re.search(r"\bid\s*:\s*([A-Za-z_][A-Za-z0-9_]*)", block)
+            if id_match:
+                control_id = id_match.group(1)
+                id_line = ""
+            else:
+                progress_index += 1
+                control_id = f"qgcContrastProgressBar{progress_index}"
+                id_line = f"\n        id: {control_id}"
+
+            style = f'''{id_line}
+        // QGC UA contrast progress style
+        background: Rectangle {{
+            implicitWidth: 200
+            implicitHeight: 14
+            radius: 7
+            color: "#101010"
+            border.color: "#FFD400"
+            border.width: 2
+        }}
+        contentItem: Item {{
+            implicitWidth: 200
+            implicitHeight: 14
+            Rectangle {{
+                width: {control_id}.visualPosition * parent.width
+                height: parent.height
+                radius: 7
+                color: {control_id}.enabled ? "#FFD400" : "#6B5E00"
+            }}
+        }}
+'''
+            insert_at = open_brace + 1
+            updated = updated[:insert_at] + style + updated[insert_at:]
+            touched = True
+            offset = block_end + len(style)
+
+        if touched:
+            path.write_text(updated, encoding="utf-8", newline="\n")
+            changed.append(path)
+
+    return changed
 
 
 def patch_centered_tool_menu(root: Path) -> Path:
@@ -521,8 +734,9 @@ def verify_markers(paths: list[Path]) -> None:
         "StatusTextHandler.cc": "QStringDecoder utf8Decoder(QStringDecoder::Utf8)",
         "ScreenToolsController.cc": 'QStringLiteral("Play")',
         "QGCApplication.cc": ':/fonts/play-regular',
-        "VehicleMessageList.qml": "messagePanelMinHeight",
-        "MainStatusIndicator.qml": "autoCloseSeconds: 60",
+        "VehicleMessageList.qml": "function refreshMessages()",
+        "MainStatusIndicator.qml": "messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60",
+        "QGCTextField.qml": "control.activeFocus ? 3 : 2",
         "MainWindow.qml": "centerOnWindow",
         "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
         "main.cc": "QGroundControl Portable",
@@ -546,6 +760,7 @@ def main() -> int:
         changed.extend(patch_play_font(root))
         changed.append(patch_vehicle_message_list(root))
         changed.append(patch_main_status(root))
+        changed.extend(patch_contrast_controls(root))
         changed.append(patch_centered_tool_menu(root))
         changed.append(patch_service_mode_menu(root))
         changed.append(patch_splash(root))
