@@ -133,6 +133,38 @@ try {
             throw "Unfinished Ukrainian translations remain in $translationFile"
         }
     }
+    $serviceModeQml = Join-Path $QgcRoot "custom\qml\ServiceMode.qml"
+    $serviceParamsQml = Join-Path $QgcRoot "custom\qml\ServiceParameterEditor.qml"
+    if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
+        throw "Service mode menu button marker not found"
+    }
+    if (-not (Test-Path $serviceModeQml -PathType Leaf)) {
+        throw "ServiceMode.qml missing from custom overlay"
+    }
+    foreach ($serviceMarker in @(
+        'text:\s*"Огляд"',
+        'text:\s*"Прошивка"',
+        'text:\s*"Параметри"',
+        'text:\s*"Датчики"',
+        'QGCAttitudeWidget',
+        'FlightMap',
+        'activeVehicle\.gps\.count\.valueString',
+        'activeVehicle\.gps\.lock\.enumStringValue',
+        'QGCCompassWidget'
+    )) {
+        if (-not (Select-String -Path $serviceModeQml -Pattern $serviceMarker -Quiet)) {
+            throw "Service mode marker not found: $serviceMarker"
+        }
+    }
+    if (-not (Test-Path $serviceParamsQml -PathType Leaf)) {
+        throw "ServiceParameterEditor.qml missing from custom overlay"
+    }
+    foreach ($paramMarker in @('controller\.categories', 'controller\.parameters', 'longDescription', 'defaultValueString')) {
+        if (-not (Select-String -Path $serviceParamsQml -Pattern $paramMarker -Quiet)) {
+            throw "Service parameter editor marker not found: $paramMarker"
+        }
+    }
+
     if (-not (Test-Path $playRegular -PathType Leaf) -or -not (Test-Path $playBold -PathType Leaf)) {
         throw "Bundled Play fonts are missing"
     }
