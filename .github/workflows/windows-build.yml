@@ -10,6 +10,7 @@ on:
       - 'tools/**'
       - 'patches/**'
       - 'custom/**'
+      - 'translations/**'
 
 concurrency:
   group: qgc-ua-windows-${{ github.ref }}
@@ -64,7 +65,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: translation-cache
-          key: qgc-uk-${{ env.QGC_COMMIT }}-${{ hashFiles('tools/generate_ukrainian_translations.py') }}
+          key: qgc-uk-${{ env.QGC_COMMIT }}-${{ hashFiles('tools/generate_ukrainian_translations.py', 'translations/uk_manual_overrides.json') }}
 
       - name: Install Ukrainian translation engine
         shell: pwsh
