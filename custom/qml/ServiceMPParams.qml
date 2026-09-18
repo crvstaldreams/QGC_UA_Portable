@@ -16,14 +16,15 @@ Item {
     property var linkManager: QGroundControl.linkManager
     property var appSettings: QGroundControl.settingsManager.appSettings
     property var mpLinkConfig: null
+    property real uiScale: 0.84
     property var tableWidths: [
-        ScreenTools.defaultFontPixelWidth * 20,
-        ScreenTools.defaultFontPixelWidth * 14,
-        ScreenTools.defaultFontPixelWidth * 12,
-        ScreenTools.defaultFontPixelWidth * 8,
-        ScreenTools.defaultFontPixelWidth * 24,
-        ScreenTools.defaultFontPixelWidth * 40,
-        ScreenTools.defaultFontPixelWidth * 5
+        ScreenTools.defaultFontPixelWidth * 17,
+        ScreenTools.defaultFontPixelWidth * 11,
+        ScreenTools.defaultFontPixelWidth * 10,
+        ScreenTools.defaultFontPixelWidth * 7,
+        ScreenTools.defaultFontPixelWidth * 18,
+        ScreenTools.defaultFontPixelWidth * 30,
+        ScreenTools.defaultFontPixelWidth * 4
     ]
 
     QGCPalette {
@@ -229,8 +230,11 @@ Item {
     }
 
     ColumnLayout {
-        anchors.fill: parent
-        spacing: ScreenTools.defaultFontPixelHeight * 0.45
+        width: root.width / root.uiScale
+        height: root.height / root.uiScale
+        scale: root.uiScale
+        transformOrigin: Item.TopLeft
+        spacing: ScreenTools.defaultFontPixelHeight * 0.32
 
         Rectangle {
             Layout.fillWidth: true
@@ -369,47 +373,12 @@ Item {
             value: controller.loadProgress
         }
 
-        RowLayout {
+        ColumnLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
             spacing: ScreenTools.defaultFontPixelWidth * 0.6
 
-            Rectangle {
-                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 26
-                Layout.fillHeight: true
-                color: qgcPal.window
-                radius: ScreenTools.defaultBorderRadius
-                border.color: qgcPal.groupBorder
-                border.width: 1
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: ScreenTools.defaultFontPixelWidth * 0.5
-                    spacing: ScreenTools.defaultFontPixelHeight * 0.3
-
-                    QGCLabel {
-                        Layout.fillWidth: true
-                        text: "MP Parameter Tree"
-                        font.bold: true
-                    }
-
-                    TreeView {
-                        id: paramTree
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        model: controller.treeModel
-
-                        delegate: TreeViewDelegate {
-                            implicitWidth: paramTree.width
-                            text: model.display
-                            onClicked: controller.selectTreeFilter(model.prefix, model.leaf)
-                        }
-
-                        Component.onCompleted: expand(0)
-                    }
-                }
-            }
 
             ColumnLayout {
                 Layout.fillWidth: true
@@ -449,7 +418,7 @@ Item {
                         model: ["Parameter", "Value", "Default", "Units", "Options", "Description", "Fav"]
                         Rectangle {
                             Layout.preferredWidth: root.tableWidths[index]
-                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 2
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.7
                             color: qgcPal.windowShadeDark
                             border.color: qgcPal.buttonBorder
                             border.width: 1
@@ -478,7 +447,7 @@ Item {
 
                     delegate: Rectangle {
                         implicitWidth: root.tableWidths[column]
-                        implicitHeight: ScreenTools.defaultFontPixelHeight * 2.25
+                        implicitHeight: ScreenTools.defaultFontPixelHeight * 1.85
                         color: model.changed
                                ? qgcPal.buttonHighlight
                                : (row % 2 ? qgcPal.windowShade : qgcPal.window)
