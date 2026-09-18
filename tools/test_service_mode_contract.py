@@ -85,6 +85,14 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("SERVO", self.servo)
         self.assertIn("activeVehicle.motorTest", self.servo)
         self.assertIn("СТОП", self.servo)
+        self.assertIn('text: "FMU PWM OUT (AUX)"', self.servo)
+        self.assertIn('text: "I/O PWM OUT (MAIN)"', self.servo)
+        self.assertIn("safetyMaskFact.rawValue = 255", self.servo)
+        self.assertIn("safetyMaskFact.rawValue = 65280", self.servo)
+        self.assertIn("setServoFunction(output, 33 + (output - 9))", self.servo)
+        self.assertIn("setServoFunction(output, 33 + (output - 1))", self.servo)
+        self.assertIn("setServoFunction(15, 60)", self.servo)
+        self.assertIn("setServoFunction(7, 60)", self.servo)
 
 
 if __name__ == "__main__":
