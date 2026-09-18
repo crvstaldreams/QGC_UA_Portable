@@ -289,6 +289,12 @@ def process_ts(path: Path, translator, cache: dict[str, str]) -> tuple[int, int,
         if source_element is None or translation_element is None:
             continue
 
+        # Clear Qt Linguist's unfinished marker even for the few upstream
+        # bookkeeping messages which have an empty <source/>. Those entries
+        # have no user-visible text to translate, but leaving the marker would
+        # make the build verifier report a false failure.
+        translation_element.attrib.pop("type", None)
+
         source = "".join(source_element.itertext())
         if not source:
             continue
@@ -305,7 +311,6 @@ def process_ts(path: Path, translator, cache: dict[str, str]) -> tuple[int, int,
             translated = translate_one(source, translator, cache)
             translation_element.text = translated
 
-        translation_element.attrib.pop("type", None)
         if translated == source:
             unchanged_count += 1
         else:
