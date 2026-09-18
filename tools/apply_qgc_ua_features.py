@@ -160,6 +160,7 @@ def patch_main_status(root: Path) -> Path:
 
     old_list = '''                VehicleMessageList { 
                     id: vehicleMessageList
+                    messageFontPointSize: ScreenTools.defaultFontPointSize * 1.35
                 }
 '''
     new_list = '''                VehicleMessageList {
