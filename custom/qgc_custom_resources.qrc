@@ -6,5 +6,6 @@
     <qresource prefix="/qml/QGroundControl/Custom">
         <file alias="ServiceMode.qml">qml/ServiceMode.qml</file>
         <file alias="ServiceParameterEditor.qml">qml/ServiceParameterEditor.qml</file>
+        <file alias="ServiceServoSafety.qml">qml/ServiceServoSafety.qml</file>
     </qresource>
 </RCC>
