@@ -73,14 +73,28 @@ def _replace_standard_paths(source_root: Path) -> list[Path]:
 
 def _patch_application_boot(source_root: Path) -> Path:
     path = source_root / "src" / "QGCApplication.cc"
+    portable_header = source_root / "custom" / "src" / "PortablePaths.h"
+    local_header = path.parent / "PortablePaths.h"
+
+    if not portable_header.is_file():
+        raise PortableModeError(f"PortablePaths.h missing: {portable_header}")
+
+    shutil.copy2(portable_header, local_header)
+
     text = path.read_text(encoding="utf-8")
+    text = _insert_include(text)
+
     marker = "{\n    _msecsElapsedTime.start();"
     replacement = "{\n    QGCPortablePaths::initialize();\n\n    _msecsElapsedTime.start();"
     if "QGCPortablePaths::initialize();" not in text:
         if marker not in text:
             raise PortableModeError("QGCApplication constructor marker not found")
         text = text.replace(marker, replacement, 1)
-        path.write_text(text, encoding="utf-8", newline="\n")
+
+    if '#include "PortablePaths.h"' not in text:
+        raise PortableModeError("PortablePaths.h include missing from QGCApplication.cc")
+
+    path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
 
