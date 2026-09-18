@@ -41,6 +41,30 @@ class UkrainianLocalizationRulesTest(unittest.TestCase):
         self.assertEqual(contextual_override("Pitch", "Attitude", location), "Тангаж")
         self.assertEqual(contextual_override("Yaw", "Attitude", location), "Рискання")
 
+    def test_current_depends_on_context(self):
+        self.assertEqual(
+            contextual_override(
+                "Current",
+                "PowerComponent",
+                ["../src/AutoPilotPlugins/PX4/PowerComponent.qml"],
+            ),
+            "Струм",
+        )
+        self.assertEqual(
+            contextual_override(
+                "Current",
+                "ParameterEditor",
+                ["../src/QmlControls/ParameterEditor.qml"],
+            ),
+            "Поточне",
+        )
+
+    def test_arm_home_and_attitude_use_uav_vocabulary(self):
+        self.assertEqual(contextual_override("Arm", "MainStatusIndicator", []), "Озброїти")
+        self.assertEqual(contextual_override("Armed", "MainStatusIndicator", []), "Озброєно")
+        self.assertEqual(contextual_override("Home", "FlyView", []), "HOME")
+        self.assertEqual(contextual_override("Attitude", "FlyView", []), "Просторова орієнтація")
+
     def test_terrain_frame_is_coordinate_frame(self):
         self.assertEqual(
             contextual_override(
