@@ -442,6 +442,39 @@ def save_cache(path: Path, cache: dict[str, str]) -> None:
     path.write_text(json.dumps(cache, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")
 
 
+def load_manual_overrides(path: Path | None) -> dict[tuple[str, str], str]:
+    """Load user-maintained translations keyed by (context, source).
+
+    An empty context means a global override. Context-specific entries always
+    take precedence over global ones.
+    """
+    if path is None or not path.is_file():
+        return {}
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entries = data.get("entries", []) if isinstance(data, dict) else []
+    result: dict[tuple[str, str], str] = {}
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        source = str(entry.get("source", ""))
+        translation = str(entry.get("translation", ""))
+        context = str(entry.get("context", ""))
+        if source and translation:
+            result[(context, source)] = translation
+    return result
+
+
+def find_manual_override(
+    source: str,
+    context_name: str,
+    overrides: dict[tuple[str, str], str],
+) -> str | None:
+    if (context_name, source) in overrides:
+        return overrides[(context_name, source)]
+    return overrides.get(("", source))
+
+
 def ensure_argos_translation():
     try:
         import argostranslate.package
@@ -497,7 +530,14 @@ def translate_one(
     cache: dict[str, str],
     context_name: str = "",
     locations: list[str] | tuple[str, ...] = (),
+    manual_overrides: dict[tuple[str, str], str] | None = None,
 ) -> str:
+    manual = find_manual_override(source, context_name, manual_overrides or {})
+    if manual is not None:
+        # User overrides are authoritative. They intentionally bypass the
+        # automatic terminology postprocessor/audit.
+        return manual
+
     override = contextual_override(source, context_name, locations)
     if override is not None:
         audit_translation(source, override, context_name, locations)
@@ -534,7 +574,12 @@ def translate_one(
     return result
 
 
-def process_ts(path: Path, translator, cache: dict[str, str]) -> tuple[int, int, int]:
+def process_ts(
+    path: Path,
+    translator,
+    cache: dict[str, str],
+    manual_overrides: dict[tuple[str, str], str] | None = None,
+) -> tuple[int, int, int]:
     tree = ET.parse(path)
     root = tree.getroot()
     translated_count = 0
@@ -566,16 +611,16 @@ def process_ts(path: Path, translator, cache: dict[str, str]) -> tuple[int, int,
                 if location.attrib.get("filename")
             ]
 
-            if contextual_override(source, context_name, locations) is not None:
+            if find_manual_override(source, context_name, manual_overrides or {}) is not None or contextual_override(source, context_name, locations) is not None:
                 manual_count += 1
 
             plural_forms = translation_element.findall("numerusform")
             if plural_forms:
-                translated = translate_one(source, translator, cache, context_name, locations)
+                translated = translate_one(source, translator, cache, context_name, locations, manual_overrides)
                 for form in plural_forms:
                     form.text = translated
             else:
-                translated = translate_one(source, translator, cache, context_name, locations)
+                translated = translate_one(source, translator, cache, context_name, locations, manual_overrides)
                 translation_element.text = translated
 
             if translated == source:
@@ -597,6 +642,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-root", required=True, type=Path)
     parser.add_argument("--cache", required=True, type=Path)
+    parser.add_argument("--overrides", type=Path, default=None)
     args = parser.parse_args()
 
     source_root = args.source_root.resolve()
@@ -610,13 +656,14 @@ def main() -> int:
             return 1
 
     cache = load_cache(args.cache.resolve())
+    manual_overrides = load_manual_overrides(args.overrides.resolve() if args.overrides else None)
     translator = ensure_argos_translation()
 
     total_translated = 0
     total_manual = 0
     total_unchanged = 0
     for path in targets:
-        translated, manual, unchanged = process_ts(path, translator, cache)
+        translated, manual, unchanged = process_ts(path, translator, cache, manual_overrides)
         total_translated += translated
         total_manual += manual
         total_unchanged += unchanged
