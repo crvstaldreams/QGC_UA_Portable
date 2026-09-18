@@ -153,6 +153,8 @@ MANUAL_TRANSLATIONS = {
 }
 
 AVIATION_EXACT = {
+    "Frame Setup is used to select the airframe which matches your vehicle.": "Налаштування рами використовується для вибору рами, що відповідає вашому борту.",
+    "Frame setup allows you to choose your vehicle's motor configuration. Install <b>clockwise</b><br>propellers on the <b>green thrusters</b> and <b>counter-clockwise</b> propellers on the <b>blue thrusters</b><br>(or vice-versa). The flight controller will need to be rebooted to apply changes.<br>When selecting a frame, you can choose to load the default parameter set for that frame configuration if available.": "Налаштування рами дозволяє вибрати конфігурацію моторів борту. Встановіть пропелери <b>за годинниковою стрілкою</b><br>на <b>зелені рушії</b>, а пропелери <b>проти годинникової стрілки</b> — на <b>сині рушії</b><br>(або навпаки). Для застосування змін польотний контролер потрібно перезавантажити.<br>Під час вибору рами можна завантажити типовий набір параметрів для цієї конфігурації рами, якщо він доступний.",
     "Summary": "Огляд",
     "Firmware": "Прошивка",
     "Sensors": "Датчики",
