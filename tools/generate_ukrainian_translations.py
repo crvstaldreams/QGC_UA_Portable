@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 MANUAL_TRANSLATIONS = {
-    "System": "Системна",
+    "System": "Система",
     "Language": "Мова",
     "Vehicle Configuration": "Налаштування борту",
     "Application Settings": "Налаштування застосунку",
@@ -85,13 +85,13 @@ MANUAL_TRANSLATIONS = {
     "Value": "Значення",
     "Units": "Одиниці",
     "Description": "Опис",
-    "Default": "Типово",
+    "Default": "За замовчуванням",
     "Vehicle": "Борт",
     "Vehicles": "Борти",
     "Firmware": "Прошивка",
     "Airframe": "Рама",
     "Sensors": "Датчики",
-    "Radio": "Радіоканал",
+    "Radio": "Радіокерування",
     "Flight Modes": "Режими польоту",
     "Power": "Живлення",
     "Motors": "Мотори",
@@ -109,18 +109,18 @@ MANUAL_TRANSLATIONS = {
     "Fly": "Політ",
     "Plan": "План",
     "Setup": "Налаштування",
-    "Position": "Позиція",
+    "Position": "Положення",
     "Altitude": "Висота",
     "Speed": "Швидкість",
     "Distance": "Відстань",
     "Heading": "Курс",
     "Battery": "Акумулятор",
     "Voltage": "Напруга",
-    "Current": "Струм",
+    "Current": "Поточне",
     "Temperature": "Температура",
     "Signal": "Сигнал",
     "GPS": "GPS",
-    "Home": "Дім",
+    "Home": "HOME",
     "Takeoff": "Зліт",
     "Land": "Посадка",
     "Return": "Повернення",
@@ -153,6 +153,33 @@ MANUAL_TRANSLATIONS = {
 }
 
 AVIATION_EXACT = {
+    "Summary": "Огляд",
+    "Firmware": "Прошивка",
+    "Sensors": "Датчики",
+    "Parameters": "Параметри",
+    "Arm": "Озброїти",
+    "Armed": "Озброєно",
+    "Disarm": "Роззброїти",
+    "Force Arm": "Примусово озброїти",
+    "Home": "HOME",
+    "Return to Home": "Повернення до HOME",
+    "Attitude": "Просторова орієнтація",
+    "Orientation": "Орієнтація",
+    "Rotation": "Поворот",
+    "Ground Speed": "Шляхова швидкість",
+    "Airspeed": "Повітряна швидкість",
+    "Vertical Speed": "Вертикальна швидкість",
+    "Course Over Ground": "Шляховий курс",
+    "GPS Lock": "Фіксація GPS",
+    "Satellites": "Супутники",
+    "Accuracy": "Точність",
+    "Link": "Канал зв’язку",
+    "Communication Link": "Канал зв’язку",
+    "Servo": "Сервопривід",
+    "Actuator": "Виконавчий механізм",
+    "Actuators": "Виконавчі механізми",
+    "Level Horizon": "Вирівняти горизонт",
+    "Sensor Settings": "Налаштування датчиків",
     "Airframe": "Рама",
     "Airframe Type": "Тип рами",
     "Frame Type": "Тип рами",
@@ -216,25 +243,139 @@ VIDEO_CONTEXT_HINTS = (
     "image",
 )
 
+POWER_CONTEXT_HINTS = (
+    "power",
+    "battery",
+    "currentmonitor",
+    "current monitor",
+    "esc",
+)
+
+FLIGHT_CONTEXT_HINTS = (
+    "flyview",
+    "flight",
+    "mission",
+    "vehicle",
+    "autopilot",
+    "toolbar",
+)
+
+FRAME_FORM_REPLACEMENTS = (
+    (r"\bкошика\b", "рами"),
+    (r"\bкошиком\b", "рамою"),
+    (r"\bкошику\b", "рамі"),
+    (r"\bкошики\b", "рами"),
+    (r"\bкошиків\b", "рам"),
+    (r"\bкошик\b", "рама"),
+    (r"\bкадру\b", "рами"),
+    (r"\bкадром\b", "рамою"),
+    (r"\bкадрі\b", "рамі"),
+    (r"\bкадри\b", "рами"),
+    (r"\bкадрів\b", "рам"),
+    (r"\bкадр\b", "рама"),
+    (r"\bрамки\b", "рами"),
+    (r"\bрамку\b", "раму"),
+    (r"\bрамкою\b", "рамою"),
+    (r"\bрамці\b", "рамі"),
+    (r"\bрамка\b", "рама"),
+    (r"\bкаркаса\b", "рами"),
+    (r"\bкаркасом\b", "рамою"),
+    (r"\bкаркасі\b", "рамі"),
+    (r"\bкаркаси\b", "рами"),
+    (r"\bкаркасів\b", "рам"),
+    (r"\bкаркас\b", "рама"),
+    (r"\bфрейму\b", "рами"),
+    (r"\bфрейм\b", "рама"),
+)
+
+
+def _context_blob(context_name: str, locations: list[str] | tuple[str, ...]) -> str:
+    return (context_name + " " + " ".join(locations)).lower()
+
+
+def _has_context(context_blob: str, hints: tuple[str, ...]) -> bool:
+    return any(hint in context_blob for hint in hints)
+
 
 def contextual_override(source: str, context_name: str = "", locations: list[str] | tuple[str, ...] = ()) -> str | None:
     """Return a domain-correct Ukrainian translation for ambiguous QGC terminology."""
-    if source in MANUAL_TRANSLATIONS:
-        return MANUAL_TRANSLATIONS[source]
+    context_blob = _context_blob(context_name, locations)
 
-    context_blob = (context_name + " " + " ".join(locations)).lower()
     if source == "Frame":
-        if any(hint in context_blob for hint in VIDEO_CONTEXT_HINTS):
+        if _has_context(context_blob, VIDEO_CONTEXT_HINTS):
             return "Кадр"
-        if any(hint in context_blob for hint in AIRFRAME_CONTEXT_HINTS):
+        if _has_context(context_blob, AIRFRAME_CONTEXT_HINTS):
             return "Рама"
         # In QGC a bare Frame label overwhelmingly refers to the vehicle frame.
         return "Рама"
 
+    if source == "Current":
+        if _has_context(context_blob, POWER_CONTEXT_HINTS):
+            return "Струм"
+        return "Поточне"
+
     if source in AVIATION_EXACT:
         return AVIATION_EXACT[source]
 
+    if source in MANUAL_TRANSLATIONS:
+        return MANUAL_TRANSLATIONS[source]
+
     return None
+
+
+def postprocess_translation(
+    source: str,
+    translated: str,
+    context_name: str = "",
+    locations: list[str] | tuple[str, ...] = (),
+) -> str:
+    """Apply context-sensitive terminology after raw machine translation."""
+    context_blob = _context_blob(context_name, locations)
+    result = translated
+
+    if re.search(r"\bframe\b", source, flags=re.IGNORECASE) and _has_context(context_blob, AIRFRAME_CONTEXT_HINTS):
+        for pattern, replacement in FRAME_FORM_REPLACEMENTS:
+            result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
+
+    # HOME is a conventional navigation label in autopilot UIs. Avoid literal
+    # household translations in flight/mission contexts.
+    if re.search(r"\bhome\b", source, flags=re.IGNORECASE) and _has_context(context_blob, FLIGHT_CONTEXT_HINTS):
+        result = re.sub(r"\bдодому\b", "до HOME", result, flags=re.IGNORECASE)
+        result = re.sub(r"\bдомівк(?:а|и|у|ою|ці)\b", "HOME", result, flags=re.IGNORECASE)
+        result = re.sub(r"\bдім\b", "HOME", result, flags=re.IGNORECASE)
+
+    return result
+
+
+def audit_translation(
+    source: str,
+    translated: str,
+    context_name: str = "",
+    locations: list[str] | tuple[str, ...] = (),
+) -> None:
+    """Fail the build when known dangerous terminology regressions reappear."""
+    context_blob = _context_blob(context_name, locations)
+    lowered = translated.lower()
+
+    if re.search(r"\bframe\b", source, flags=re.IGNORECASE) and _has_context(context_blob, AIRFRAME_CONTEXT_HINTS):
+        if "рам" not in lowered:
+            raise ValueError(
+                f"Airframe terminology regression: {source!r} -> {translated!r} "
+                f"({context_name}, {locations})"
+            )
+        if any(bad in lowered for bad in ("кошик", "кадр", "каркас", "фрейм")):
+            raise ValueError(
+                f"Bad airframe translation remains: {source!r} -> {translated!r} "
+                f"({context_name}, {locations})"
+            )
+
+    if source == "Current":
+        expected = "струм" if _has_context(context_blob, POWER_CONTEXT_HINTS) else "поточ"
+        if expected not in lowered:
+            raise ValueError(
+                f"Ambiguous Current translation regression: {source!r} -> {translated!r} "
+                f"({context_name}, {locations})"
+            )
 
 
 TECHNICAL_TERMS = (
@@ -342,29 +483,37 @@ def translate_one(
 ) -> str:
     override = contextual_override(source, context_name, locations)
     if override is not None:
+        audit_translation(source, override, context_name, locations)
         return override
+
     if source in cache:
-        return cache[source]
-    if should_leave_as_technical(source):
-        cache[source] = source
-        return source
+        raw_result = cache[source]
+    elif should_leave_as_technical(source):
+        raw_result = source
+        cache[source] = raw_result
+    else:
+        leading = source[: len(source) - len(source.lstrip())]
+        trailing = source[len(source.rstrip()) :]
+        core = source.strip()
+        protected, values = protect_tokens(core)
 
-    leading = source[: len(source) - len(source.lstrip())]
-    trailing = source[len(source.rstrip()) :]
-    core = source.strip()
-    protected, values = protect_tokens(core)
+        try:
+            translated = translator.translate(protected).strip()
+            translated = restore_tokens(translated, values)
+        except Exception:
+            translated = core
 
-    try:
-        translated = translator.translate(protected).strip()
-        translated = restore_tokens(translated, values)
-    except Exception:
-        translated = core
+        if not translated:
+            translated = core
 
-    if not translated:
-        translated = core
+        raw_result = f"{leading}{translated}{trailing}"
+        # Cache only the raw machine translation. Context-sensitive terminology
+        # is applied below per message, so one source string can safely appear
+        # in different QGC contexts.
+        cache[source] = raw_result
 
-    result = f"{leading}{translated}{trailing}"
-    cache[source] = result
+    result = postprocess_translation(source, raw_result, context_name, locations)
+    audit_translation(source, result, context_name, locations)
     return result
 
 
