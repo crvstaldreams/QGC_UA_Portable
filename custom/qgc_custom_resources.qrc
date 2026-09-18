@@ -3,4 +3,8 @@
         <file alias="play-regular">resources/Play-Regular.ttf</file>
         <file alias="play-bold">resources/Play-Bold.ttf</file>
     </qresource>
+    <qresource prefix="/qml/QGroundControl/Custom">
+        <file alias="ServiceMode.qml">qml/ServiceMode.qml</file>
+        <file alias="ServiceParameterEditor.qml">qml/ServiceParameterEditor.qml</file>
+    </qresource>
 </RCC>
