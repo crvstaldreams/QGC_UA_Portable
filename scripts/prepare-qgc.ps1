@@ -52,6 +52,11 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "git apply failed for $patch" }
     }
 
+    Write-Host "=== Add Vsratyi humorous Ukrainian pseudo-locale ==="
+    $vsratyiPatcher = Join-Path $OverlayRoot "tools\apply_vsratyi_language.py"
+    & python $vsratyiPatcher --source-root $QgcRoot
+    if ($LASTEXITCODE -ne 0) { throw "apply_vsratyi_language.py failed" }
+
     Write-Host "=== Verify pinned external dependencies ==="
     $dependencyVerifier = Join-Path $OverlayRoot "tools\verify_qgc_dependency_pins.py"
     & python $dependencyVerifier --source-root $QgcRoot
@@ -63,6 +68,11 @@ try {
     $translationOverrides = Join-Path $OverlayRoot "translations\uk_manual_overrides.json"
     & python $translationGenerator --source-root $QgcRoot --cache $translationCache --overrides $translationOverrides
     if ($LASTEXITCODE -ne 0) { throw "generate_ukrainian_translations.py failed" }
+
+    Write-Host "=== Generate Vsratyi humorous translation ==="
+    $vsratyiGenerator = Join-Path $OverlayRoot "tools\generate_vsratyi_translations.py"
+    & python $vsratyiGenerator --source-root $QgcRoot
+    if ($LASTEXITCODE -ne 0) { throw "generate_vsratyi_translations.py failed" }
 
     Write-Host "=== Apply scoped MAVLink Status UI customization ==="
     $customizer = Join-Path $OverlayRoot "tools\apply_qgc_ui_customizations.py"
@@ -113,6 +123,10 @@ try {
     $mainSource = Join-Path $QgcRoot "src\main.cc"
     $ukSource = Join-Path $QgcRoot "translations\qgc_source_uk_UA.ts"
     $ukJson = Join-Path $QgcRoot "translations\qgc_json_uk_UA.ts"
+    $vsratyiSource = Join-Path $QgcRoot "translations\qgc_source_vsratyi.ts"
+    $vsratyiJson = Join-Path $QgcRoot "translations\qgc_json_vsratyi.ts"
+    $appSettingsSource = Join-Path $QgcRoot "src\Settings\AppSettings.cc"
+    $qgcApplicationSource = Join-Path $QgcRoot "src\QGCApplication.cc"
 
     if (-not (Select-String -Path $statusHandler -Pattern 'QStringDecoder utf8Decoder' -Quiet)) {
         throw "MAVLink STATUSTEXT UTF-8 marker not found"
@@ -149,6 +163,27 @@ try {
         if (Select-String -Path $translationFile -Pattern 'type="unfinished"' -Quiet) {
             throw "Unfinished Ukrainian translations remain in $translationFile"
         }
+    }
+    foreach ($vsratyiFile in @($vsratyiSource, $vsratyiJson)) {
+        if (-not (Test-Path $vsratyiFile -PathType Leaf)) {
+            throw "Vsratyi translation files were not generated: $vsratyiFile"
+        }
+        if (Select-String -Path $vsratyiFile -Pattern 'type="unfinished"' -Quiet) {
+            throw "Unfinished Vsratyi translations remain in $vsratyiFile"
+        }
+    }
+    foreach ($marker in @('QStringLiteral\("Всратий"\)', 'kVsratyiLanguageId')) {
+        if (-not (Select-String -Path $appSettingsSource -Pattern $marker -Quiet)) {
+            throw "Vsratyi language selector marker missing: $marker"
+        }
+    }
+    foreach ($marker in @('qgc_source_vsratyi', 'qgc_json_vsratyi', 'vsratyiLanguage')) {
+        if (-not (Select-String -Path $qgcApplicationSource -Pattern $marker -Quiet)) {
+            throw "Vsratyi runtime marker missing: $marker"
+        }
+    }
+    if (-not (Select-String -Path $appSettingsSource -Pattern 'settings\.setValue\(qLocaleLanguageName, QLocale::English\)' -Quiet)) {
+        throw "English clean-install default marker missing"
     }
     $serviceModeQml = Join-Path $QgcRoot "custom\qml\ServiceMode.qml"
     $serviceParamsQml = Join-Path $QgcRoot "custom\qml\ServiceParameterEditor.qml"
