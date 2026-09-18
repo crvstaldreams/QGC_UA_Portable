@@ -7,7 +7,7 @@
 #include <QtCore/QString>
 
 #ifdef Q_OS_WIN
-#include <windows.h>
+#include <QtCore/qt_windows.h>
 #endif
 
 namespace QGCPortablePaths
