@@ -104,7 +104,7 @@ try {
     Write-Host "=== Verify customization markers ==="
     $allQml = Get-ChildItem -Path $QgcRoot -Filter *.qml -Recurse -File
     $mainWindow = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'keepOpen \? Popup.CloseOnEscape' -Quiet } | Select-Object -First 1
-    $status = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'messageFontPointSize:\s*ScreenTools.defaultFontPointSize\s*\*\s*1\.35' -Quiet } | Select-Object -First 1
+    $status = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'messageFontPointSize:\s*ScreenTools.defaultFontPointSize\s*\*\s*1\.60' -Quiet } | Select-Object -First 1
     if (-not $mainWindow) { throw "Persistent MAVLink Status close-policy marker not found" }
     if (-not $status) { throw "Scoped MAVLink Status messageFontPointSize marker not found" }
 
@@ -125,6 +125,22 @@ try {
     }
     if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'autoCloseSeconds:\s*60' -Quiet } | Select-Object -First 1)) {
         throw "MAVLink Status 60-second auto-close marker not found"
+    }
+    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'interval:\s*5000' -Quiet } | Select-Object -First 1)) {
+        throw "MAVLink Status 5-second refresh marker not found"
+    }
+    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'width:\s*mainWindow\.contentItem\.width\s*\*\s*0\.65' -Quiet } | Select-Object -First 1)) {
+        throw "MAVLink Status 65-percent width marker not found"
+    }
+    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'text:\s*"Закрити"' -Quiet } | Select-Object -First 1)) {
+        throw "MAVLink Status close button marker not found"
+    }
+    $contrastTextField = Join-Path $QgcRoot "src\QmlControls\QGCTextField.qml"
+    if (-not (Select-String -Path $contrastTextField -Pattern 'control\.activeFocus \? 3 : 2' -Quiet)) {
+        throw "High contrast search/text field marker not found"
+    }
+    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'QGC UA contrast progress style' -Quiet } | Select-Object -First 1)) {
+        throw "High contrast progress bar marker not found"
     }
     if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'centerOnWindow' -Quiet } | Select-Object -First 1)) {
         throw "Centered tool menu marker not found"
