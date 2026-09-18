@@ -119,8 +119,15 @@ jobs:
         run: |
           $exe = Join-Path $env:BUILD_DIR "Release\QGroundControl-UA.exe"
           if (-not (Test-Path $exe)) { throw "Expected executable missing: $exe" }
-          & $exe --simple-boot-test
-          if ($LASTEXITCODE -ne 0) { throw "QGroundControl-UA.exe --simple-boot-test failed: $LASTEXITCODE" }
+
+          Write-Host "Running simple boot test: $exe"
+          $process = Start-Process -FilePath $exe -ArgumentList "--simple-boot-test" -PassThru -Wait
+          $exitCode = $process.ExitCode
+          Write-Host "Simple boot test exit code: $exitCode"
+
+          if ($exitCode -ne 0) {
+              throw "QGroundControl-UA.exe --simple-boot-test failed with exit code $exitCode"
+          }
 
       - name: Create staging tree and Windows installer
         shell: cmd
