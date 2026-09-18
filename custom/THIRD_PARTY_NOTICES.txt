@@ -1,3 +1,12 @@
 QGroundControl-UA custom build overlay.
 
-This build is based on QGroundControl and uses Qt and GStreamer. Upstream licenses remain applicable. See the bundled third-party license directory in the generated package.
+This build is based on QGroundControl and uses Qt and GStreamer. Upstream licenses remain applicable.
+
+The portable build also bundles the Play typeface by Jonas Hecksher / Playtype from Google Fonts.
+Play is distributed under the SIL Open Font License (OFL). The corresponding Play-OFL.txt
+license is bundled in the generated third-party license directory.
+
+Argos Translate is used only as a build-time tool to generate the Ukrainian Qt translation
+catalogs and is not distributed as part of the QGroundControl portable runtime.
+
+See the bundled third-party license directory in the generated package.
