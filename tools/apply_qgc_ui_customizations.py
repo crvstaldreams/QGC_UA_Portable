@@ -36,8 +36,8 @@ def apply_customizations(root: Path):
     text=status.read_text(encoding='utf-8')
     if 'mainWindow.showIndicatorDrawer(overallStatusComponent, control, true)' not in text:
         text=_sub_once(text,r'mainWindow\.showIndicatorDrawer\s*\(\s*overallStatusComponent\s*,\s*control\s*\)','mainWindow.showIndicatorDrawer(overallStatusComponent, control, true)','status persistence')
-    if 'messageFontPointSize: ScreenTools.defaultFontPointSize * 1.35' not in text:
-        text=_sub_once(text,r'(VehicleMessageList\s*\{\s*\n(?P<i>[ \t]+)id:\s*vehicleMessageList\s*\n)',lambda m:m.group(1)+f"{m.group('i')}messageFontPointSize: ScreenTools.defaultFontPointSize * 1.35\n",'status font')
+    if 'messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60' not in text:
+        text=_sub_once(text,r'(VehicleMessageList\s*\{\s*\n(?P<i>[ \t]+)id:\s*vehicleMessageList\s*\n)',lambda m:m.group(1)+f"{m.group('i')}messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60\n",'status font')
     status.write_text(text,encoding='utf-8',newline='\n')
 
     text=msgs.read_text(encoding='utf-8')
