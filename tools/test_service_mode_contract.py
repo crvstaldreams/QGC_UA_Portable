@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVICE_MODE = ROOT / "custom" / "qml" / "ServiceMode.qml"
 PARAM_EDITOR = ROOT / "custom" / "qml" / "ServiceParameterEditor.qml"
 SERVO_PAGE = ROOT / "custom" / "qml" / "ServiceServoSafety.qml"
+MAVLINK_PAGE = ROOT / "custom" / "qml" / "ServiceMavlinkStatus.qml"
 
 
 class ServiceModeContractTest(unittest.TestCase):
@@ -15,9 +16,10 @@ class ServiceModeContractTest(unittest.TestCase):
         cls.service = SERVICE_MODE.read_text(encoding="utf-8")
         cls.params = PARAM_EDITOR.read_text(encoding="utf-8")
         cls.servo = SERVO_PAGE.read_text(encoding="utf-8")
+        cls.mavlink = MAVLINK_PAGE.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
-        for label in ("Огляд", "Прошивка", "Параметри", "Датчики", "Servo/Saf.Mask", "Реконнект"):
+        for label in ("Огляд", "Прошивка", "Параметри", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
             self.assertIn(f'text: "{label}"', self.service)
 
     def test_service_panel_contains_live_orientation_map_gps_and_compass(self):
@@ -49,6 +51,12 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("controller.parameters", self.params)
         self.assertNotIn("longDescription", self.params)
         self.assertNotIn("defaultValueString", self.params)
+
+    def test_service_mavlink_status_refreshes_every_five_seconds(self):
+        self.assertIn("ServiceMavlinkStatus.qml", self.service)
+        self.assertIn("interval: 5000", self.mavlink)
+        self.assertIn("messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60", self.mavlink)
+        self.assertIn("refreshMessages()", self.mavlink)
 
     def test_servo_safety_page_is_registered_in_service_mode(self):
         self.assertIn("ServiceServoSafety.qml", self.service)
