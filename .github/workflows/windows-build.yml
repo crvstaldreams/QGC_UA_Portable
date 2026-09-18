@@ -50,6 +50,16 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Cache Ukrainian translations
+        uses: actions/cache@v4
+        with:
+          path: translation-cache
+          key: qgc-uk-${{ env.QGC_COMMIT }}-${{ hashFiles('tools/generate_ukrainian_translations.py') }}
+
+      - name: Install Ukrainian translation engine
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check "argostranslate==1.11.0"
+
       - name: Prepare QGC UA source tree
         shell: pwsh
         run: >-
