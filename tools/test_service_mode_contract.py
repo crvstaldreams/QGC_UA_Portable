@@ -63,6 +63,11 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertNotIn("longDescription", self.params)
         self.assertNotIn("defaultValueString", self.params)
 
+    def test_mp_params_controller_is_qml_registerable(self):
+        header = (ROOT / "custom" / "src" / "MPParamsController.h").read_text(encoding="utf-8")
+        self.assertIn("class MPParamsController : public FactPanelController", header)
+        self.assertNotIn("class MPParamsController final", header)
+
     def test_mp_params_mission_planner_workflow(self):
         self.assertIn("ServiceMPParams.qml", self.service)
         for marker in ("Read Params", "Write Params", "Load File", "Save File", "Compare", "LinkConfiguration.TypeSerial"):
