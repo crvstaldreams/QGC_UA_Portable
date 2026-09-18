@@ -159,7 +159,7 @@ def verify(root: Path) -> None:
     required = {
         "AppSettings.h": ["kVsratyiLanguageId = 10001", "_vsratyiLanguageEarlyAccess"],
         "AppSettings.cc": ['QStringLiteral("Всратий")', "rawLanguage == kVsratyiLanguageId"],
-        "QGCApplication.cc": ["qgc_source_vsratyi", "qgc_json_vsratyi", "QLocale::Ukrainian"],
+        "QGCApplication.cc": ["qgc_source_vsratyi", "qgc_json_vsratyi", "vsratyiLanguage"],
     }
     for label, markers in required.items():
         body = app_h if label.endswith(".h") else app_cc if label == "AppSettings.cc" else qgc
