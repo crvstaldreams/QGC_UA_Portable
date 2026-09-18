@@ -25,6 +25,22 @@ if (-not $QgcRoot) {
     }
 }
 
+$generator = Join-Path $PSScriptRoot "generate_ukrainian_translations.py"
+$editorCache = Join-Path $repoRoot "translation-cache\editor_en_uk.json"
+
+Write-Host "Preparing the same Ukrainian translation that the Windows build uses..."
+& python -c "import argostranslate" 2>$null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Installing translation engine..."
+    & python -m pip install --disable-pip-version-check "argostranslate==1.11.0"
+    if ($LASTEXITCODE -ne 0) { throw "Could not install argostranslate" }
+}
+
+& python $generator --source-root $QgcRoot --cache $editorCache --overrides $overrides
+if ($LASTEXITCODE -ne 0) {
+    throw "Could not prepare current QGroundControl translation"
+}
+
 & python $editor --source-root $QgcRoot --overrides $overrides
 if ($LASTEXITCODE -ne 0) {
     throw "Translation editor failed with exit code $LASTEXITCODE"
