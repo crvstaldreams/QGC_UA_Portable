@@ -152,6 +152,91 @@ MANUAL_TRANSLATIONS = {
     "Help": "Довідка",
 }
 
+AVIATION_EXACT = {
+    "Airframe": "Рама",
+    "Airframe Type": "Тип рами",
+    "Frame Type": "Тип рами",
+    "Frame Class": "Клас рами",
+    "Frame selection": "Вибір рами",
+    "Frame Setup": "Налаштування рами",
+    "Frame: %1": "Рама: %1",
+    "Roll": "Крен",
+    "Pitch": "Тангаж",
+    "Yaw": "Рискання",
+    "Roll Angle": "Кут крену",
+    "Pitch Angle": "Кут тангажу",
+    "Yaw Angle": "Кут рискання",
+    "Heading": "Курс",
+    "Heading to Home": "Курс на HOME",
+    "Flight Mode": "Режим польоту",
+    "Flight Modes": "Режими польоту",
+    "Throttle": "Газ",
+    "Failsafe": "Аварійний захист",
+    "Failsafes": "Аварійні захисти",
+    "Arming": "Озброєння",
+    "Disarming": "Роззброєння",
+    "Waypoint": "Точка маршруту",
+    "Waypoints": "Точки маршруту",
+    "Home Position": "Точка HOME",
+    "Terrain Frame": "Система координат рельєфу",
+    "Frame Rate": "Частота кадрів",
+    "Frame rate": "Частота кадрів",
+    "Motor Test": "Тест моторів",
+    "Compass": "Компас",
+    "Accelerometer": "Акселерометр",
+    "Gyroscope": "Гіроскоп",
+    "Magnetometer": "Магнітометр",
+    "Barometer": "Барометр",
+    "Calibration": "Калібрування",
+    "Calibrate": "Калібрувати",
+    "Reboot Vehicle": "Перезавантажити борт",
+    "Vehicle Setup": "Налаштування борту",
+    "Vehicle Settings": "Налаштування борту",
+    "Parameter Editor": "Редактор параметрів",
+    "Parameter Description": "Опис параметра",
+    "Default Value": "Типове значення",
+    "Current Value": "Поточне значення",
+    "Minimum": "Мінімум",
+    "Maximum": "Максимум",
+}
+
+AIRFRAME_CONTEXT_HINTS = (
+    "airframe",
+    "autopilotplugins",
+    "vehiclesetup",
+    "vehicle/setup",
+    "motor",
+    "actuator",
+)
+
+VIDEO_CONTEXT_HINTS = (
+    "video",
+    "camera",
+    "stream",
+    "image",
+)
+
+
+def contextual_override(source: str, context_name: str = "", locations: list[str] | tuple[str, ...] = ()) -> str | None:
+    """Return a domain-correct Ukrainian translation for ambiguous QGC terminology."""
+    if source in MANUAL_TRANSLATIONS:
+        return MANUAL_TRANSLATIONS[source]
+
+    context_blob = (context_name + " " + " ".join(locations)).lower()
+    if source == "Frame":
+        if any(hint in context_blob for hint in VIDEO_CONTEXT_HINTS):
+            return "Кадр"
+        if any(hint in context_blob for hint in AIRFRAME_CONTEXT_HINTS):
+            return "Рама"
+        # In QGC a bare Frame label overwhelmingly refers to the vehicle frame.
+        return "Рама"
+
+    if source in AVIATION_EXACT:
+        return AVIATION_EXACT[source]
+
+    return None
+
+
 TECHNICAL_TERMS = (
     "QGroundControl", "MAVLink", "PX4", "ArduPilot", "GPS", "RTK", "UDP", "TCP",
     "COM", "USB", "GCS", "RC", "ESC", "VTOL", "RTL", "QML", "JSON", "RTSP", "RTP",
@@ -248,9 +333,16 @@ def should_leave_as_technical(source: str) -> bool:
     return False
 
 
-def translate_one(source: str, translator, cache: dict[str, str]) -> str:
-    if source in MANUAL_TRANSLATIONS:
-        return MANUAL_TRANSLATIONS[source]
+def translate_one(
+    source: str,
+    translator,
+    cache: dict[str, str],
+    context_name: str = "",
+    locations: list[str] | tuple[str, ...] = (),
+) -> str:
+    override = contextual_override(source, context_name, locations)
+    if override is not None:
+        return override
     if source in cache:
         return cache[source]
     if should_leave_as_technical(source):
@@ -283,38 +375,47 @@ def process_ts(path: Path, translator, cache: dict[str, str]) -> tuple[int, int,
     manual_count = 0
     unchanged_count = 0
 
-    for message in root.findall(".//message"):
-        source_element = message.find("source")
-        translation_element = message.find("translation")
-        if source_element is None or translation_element is None:
-            continue
+    for context in root.findall("context"):
+        context_name_element = context.find("name")
+        context_name = "".join(context_name_element.itertext()) if context_name_element is not None else ""
 
-        # Clear Qt Linguist's unfinished marker even for the few upstream
-        # bookkeeping messages which have an empty <source/>. Those entries
-        # have no user-visible text to translate, but leaving the marker would
-        # make the build verifier report a false failure.
-        translation_element.attrib.pop("type", None)
+        for message in context.findall("message"):
+            source_element = message.find("source")
+            translation_element = message.find("translation")
+            if source_element is None or translation_element is None:
+                continue
 
-        source = "".join(source_element.itertext())
-        if not source:
-            continue
+            # Clear Qt Linguist's unfinished marker even for the few upstream
+            # bookkeeping messages which have an empty <source/>. Those entries
+            # have no user-visible text to translate.
+            translation_element.attrib.pop("type", None)
 
-        if source in MANUAL_TRANSLATIONS:
-            manual_count += 1
+            source = "".join(source_element.itertext())
+            if not source:
+                continue
 
-        plural_forms = translation_element.findall("numerusform")
-        if plural_forms:
-            translated = translate_one(source, translator, cache)
-            for form in plural_forms:
-                form.text = translated
-        else:
-            translated = translate_one(source, translator, cache)
-            translation_element.text = translated
+            locations = [
+                location.attrib.get("filename", "")
+                for location in message.findall("location")
+                if location.attrib.get("filename")
+            ]
 
-        if translated == source:
-            unchanged_count += 1
-        else:
-            translated_count += 1
+            if contextual_override(source, context_name, locations) is not None:
+                manual_count += 1
+
+            plural_forms = translation_element.findall("numerusform")
+            if plural_forms:
+                translated = translate_one(source, translator, cache, context_name, locations)
+                for form in plural_forms:
+                    form.text = translated
+            else:
+                translated = translate_one(source, translator, cache, context_name, locations)
+                translation_element.text = translated
+
+            if translated == source:
+                unchanged_count += 1
+            else:
+                translated_count += 1
 
     ET.indent(tree, space="  ")
     body = ET.tostring(root, encoding="unicode")
