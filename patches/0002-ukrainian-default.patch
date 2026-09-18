@@ -17,8 +17,8 @@ index fd93af4..96255d1 100644
      QSettings settings;
  
 +    if (!settings.contains(qLocaleLanguageName)) {
-+        settings.setValue(qLocaleLanguageName, QLocale::Ukrainian);
-+        return QLocale::Ukrainian;
++        settings.setValue(qLocaleLanguageName, QLocale::English);
++        return QLocale::English;
 +    }
 +
      // Note that the AppSettings group has no group name
