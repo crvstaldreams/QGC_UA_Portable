@@ -297,6 +297,21 @@ def _has_context(context_blob: str, hints: tuple[str, ...]) -> bool:
     return any(hint in context_blob for hint in hints)
 
 
+def _frame_means_airframe(
+    source: str,
+    context_name: str,
+    locations: list[str] | tuple[str, ...],
+) -> bool:
+    if not re.search(r"\bframe\b", source, flags=re.IGNORECASE):
+        return False
+    if source in {"Terrain Frame", "Frame Rate", "Frame rate"}:
+        return False
+    context_blob = _context_blob(context_name, locations)
+    if _has_context(context_blob, VIDEO_CONTEXT_HINTS):
+        return False
+    return _has_context(context_blob, AIRFRAME_CONTEXT_HINTS)
+
+
 def contextual_override(source: str, context_name: str = "", locations: list[str] | tuple[str, ...] = ()) -> str | None:
     """Return a domain-correct Ukrainian translation for ambiguous QGC terminology."""
     context_blob = _context_blob(context_name, locations)
@@ -333,7 +348,7 @@ def postprocess_translation(
     context_blob = _context_blob(context_name, locations)
     result = translated
 
-    if re.search(r"\bframe\b", source, flags=re.IGNORECASE) and _has_context(context_blob, AIRFRAME_CONTEXT_HINTS):
+    if _frame_means_airframe(source, context_name, locations):
         for pattern, replacement in FRAME_FORM_REPLACEMENTS:
             result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
 
@@ -357,7 +372,7 @@ def audit_translation(
     context_blob = _context_blob(context_name, locations)
     lowered = translated.lower()
 
-    if re.search(r"\bframe\b", source, flags=re.IGNORECASE) and _has_context(context_blob, AIRFRAME_CONTEXT_HINTS):
+    if _frame_means_airframe(source, context_name, locations):
         if "рам" not in lowered:
             raise ValueError(
                 f"Airframe terminology regression: {source!r} -> {translated!r} "
