@@ -56,6 +56,9 @@ Item {
         // ArduPilot SRV_Channel function ids:
         // Motor1..Motor6 = 33..38, RCIN10 = 60.
         safetyMaskFact.rawValue = 255
+        for (let output = 1; output <= 16; output++) {
+            setServoFunction(output, 0)
+        }
         for (let output = 9; output <= 14; output++) {
             setServoFunction(output, 33 + (output - 9))
         }
@@ -68,6 +71,9 @@ Item {
         }
 
         safetyMaskFact.rawValue = 65280
+        for (let output = 1; output <= 16; output++) {
+            setServoFunction(output, 0)
+        }
         for (let output = 1; output <= 6; output++) {
             setServoFunction(output, 33 + (output - 1))
         }
@@ -139,7 +145,7 @@ Item {
                     enabled: root.safetyMaskAvailable
                     onClicked: root.applyFmuPwmOutAuxProfile()
                     ToolTip.visible: hovered
-                    ToolTip.text: "BRD_SAFETY_MASK=255; SERVO9-14=Motor1-6; SERVO15=RCIN10"
+                    ToolTip.text: "BRD_SAFETY_MASK=255; OUT9-14=Motor1-6; OUT15=RCIN10; інші OUT=Disabled"
                 }
 
                 QGCButton {
@@ -147,12 +153,12 @@ Item {
                     enabled: root.safetyMaskAvailable
                     onClicked: root.applyIoPwmOutMainProfile()
                     ToolTip.visible: hovered
-                    ToolTip.text: "BRD_SAFETY_MASK=65280; SERVO1-6=Motor1-6; SERVO7=RCIN10"
+                    ToolTip.text: "BRD_SAFETY_MASK=65280; OUT1-6=Motor1-6; OUT7=RCIN10; інші OUT=Disabled"
                 }
 
                 QGCLabel {
                     Layout.fillWidth: true
-                    text: "Зміна SERVOx_FUNCTION може потребувати перезавантаження польотника."
+                    text: "Зміна призначення виходів може потребувати перезавантаження польотника."
                     color: qgcPal.warningText
                     font.pointSize: ScreenTools.smallFontPointSize
                     wrapMode: Text.WordWrap
@@ -189,12 +195,6 @@ Item {
                     QGCLabel {
                         Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 6
                         text: "Вихід"
-                        font.bold: true
-                    }
-
-                    QGCLabel {
-                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 15
-                        text: "Параметр"
                         font.bold: true
                     }
 
@@ -243,11 +243,6 @@ Item {
                                         Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 5.2
                                         text: "OUT " + (index + 1)
                                         font.bold: true
-                                    }
-
-                                    QGCLabel {
-                                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 14
-                                        text: parameterName
                                     }
 
                                     FactComboBox {
