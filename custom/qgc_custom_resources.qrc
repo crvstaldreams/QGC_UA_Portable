@@ -9,5 +9,6 @@
         <file alias="ServiceServoSafety.qml">qml/ServiceServoSafety.qml</file>
         <file alias="ServiceMavlinkStatus.qml">qml/ServiceMavlinkStatus.qml</file>
         <file alias="ServiceMPParams.qml">qml/ServiceMPParams.qml</file>
+        <file alias="ServiceMPParamsWindow.qml">qml/ServiceMPParamsWindow.qml</file>
     </qresource>
 </RCC>
