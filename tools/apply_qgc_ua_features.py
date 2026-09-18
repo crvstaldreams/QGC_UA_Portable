@@ -155,6 +155,52 @@ def patch_main_status(root: Path) -> Path:
                 running:    mavlinkStatusSettings.autoCloseEnabled
                 onTriggered: mainWindow.closeIndicatorDrawer()
             }
+
+
+            RowLayout {
+                spacing: ScreenTools.defaultFontPixelWidth
+
+                QGCLabel {
+                    text: "Автозакриття MAVLink Status:"
+                }
+
+                QGCComboBox {
+                    id: timeoutCombo
+                    Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 15
+
+                    property var timeoutValues: [0, 15, 30, 60, 120, 300, 600]
+
+                    model: [
+                        "Вимкнено",
+                        "15 секунд",
+                        "30 секунд",
+                        "1 хвилина",
+                        "2 хвилини",
+                        "5 хвилин",
+                        "10 хвилин"
+                    ]
+
+                    Component.onCompleted: {
+                        if (!mavlinkStatusSettings.autoCloseEnabled) {
+                            currentIndex = 0
+                        } else {
+                            const index = timeoutValues.indexOf(mavlinkStatusSettings.autoCloseSeconds)
+                            currentIndex = index >= 0 ? index : 3
+                        }
+                    }
+
+                    onActivated: (index) => {
+                        const seconds = timeoutValues[index]
+                        mavlinkStatusSettings.autoCloseEnabled = seconds > 0
+                        if (seconds > 0) {
+                            mavlinkStatusSettings.autoCloseSeconds = seconds
+                            mavlinkStatusCloseTimer.restart()
+                        } else {
+                            mavlinkStatusCloseTimer.stop()
+                        }
+                    }
+                }
+            }
 '''
     text = replace_once(text, layout_marker, settings_block, "MAVLink Status persisted timer")
 
@@ -168,51 +214,6 @@ def patch_main_status(root: Path) -> Path:
                     messageFontPointSize:   ScreenTools.defaultFontPointSize * 1.35
                     messagePanelWidth:      ScreenTools.defaultFontPixelWidth * 72
                     messagePanelMinHeight:  ScreenTools.defaultFontPixelHeight * 20
-                }
-
-                RowLayout {
-                    spacing: ScreenTools.defaultFontPixelWidth
-
-                    QGCLabel {
-                        text: "Автозакриття:"
-                    }
-
-                    QGCComboBox {
-                        id: timeoutCombo
-                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 15
-
-                        property var timeoutValues: [0, 15, 30, 60, 120, 300, 600]
-
-                        model: [
-                            "Вимкнено",
-                            "15 секунд",
-                            "30 секунд",
-                            "1 хвилина",
-                            "2 хвилини",
-                            "5 хвилин",
-                            "10 хвилин"
-                        ]
-
-                        Component.onCompleted: {
-                            if (!mavlinkStatusSettings.autoCloseEnabled) {
-                                currentIndex = 0
-                            } else {
-                                const index = timeoutValues.indexOf(mavlinkStatusSettings.autoCloseSeconds)
-                                currentIndex = index >= 0 ? index : 3
-                            }
-                        }
-
-                        onActivated: (index) => {
-                            const seconds = timeoutValues[index]
-                            mavlinkStatusSettings.autoCloseEnabled = seconds > 0
-                            if (seconds > 0) {
-                                mavlinkStatusSettings.autoCloseSeconds = seconds
-                                mavlinkStatusCloseTimer.restart()
-                            } else {
-                                mavlinkStatusCloseTimer.stop()
-                            }
-                        }
-                    }
                 }
 '''
     text = replace_once(text, old_list, new_list, "MAVLink Status timer controls and expanded size")
