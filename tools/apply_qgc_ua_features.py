@@ -165,6 +165,7 @@ def patch_main_status(root: Path) -> Path:
 '''
     new_list = '''                VehicleMessageList {
                     id:                     vehicleMessageList
+                    messageFontPointSize:   ScreenTools.defaultFontPointSize * 1.35
                     messagePanelWidth:      ScreenTools.defaultFontPixelWidth * 72
                     messagePanelMinHeight:  ScreenTools.defaultFontPixelHeight * 20
                 }
@@ -304,6 +305,7 @@ def patch_splash(root: Path) -> Path:
     include_marker = "#include <QtWidgets/QApplication>\n"
     include_block = '''#include <QtWidgets/QApplication>
 #include <QtWidgets/QSplashScreen>
+#include <QtGui/QFont>
 #include <QtGui/QFontDatabase>
 #include <QtGui/QPainter>
 #include <QtCore/QElapsedTimer>
