@@ -103,7 +103,7 @@ try {
     Write-Host "=== Verify customization markers ==="
     $allQml = Get-ChildItem -Path $QgcRoot -Filter *.qml -Recurse -File
     $mainWindow = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'keepOpen \? Popup.CloseOnEscape' -Quiet } | Select-Object -First 1
-    $status = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'messageFontPointSize: ScreenTools.defaultFontPointSize \* 1.35' -Quiet } | Select-Object -First 1
+    $status = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'messageFontPointSize:\s*ScreenTools.defaultFontPointSize\s*\*\s*1\.35' -Quiet } | Select-Object -First 1
     if (-not $mainWindow) { throw "Persistent MAVLink Status close-policy marker not found" }
     if (-not $status) { throw "Scoped MAVLink Status messageFontPointSize marker not found" }
 
