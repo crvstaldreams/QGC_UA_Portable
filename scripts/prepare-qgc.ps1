@@ -59,6 +59,13 @@ try {
     if (-not (Select-String -Path $qgcApplication -Pattern 'QGCPortablePaths::initialize\(\)' -Quiet)) {
         throw "Portable QSettings/cache initialization marker not found"
     }
+    if (-not (Select-String -Path $qgcApplication -Pattern '#include "PortablePaths\.h"' -Quiet)) {
+        throw "PortablePaths.h include missing from QGCApplication.cc"
+    }
+    $portableHeader = Join-Path $QgcRoot "src\PortablePaths.h"
+    if (-not (Test-Path $portableHeader -PathType Leaf)) {
+        throw "PortablePaths.h was not copied next to QGCApplication.cc"
+    }
     if (-not (Select-String -Path $appSettings -Pattern 'QGC PORTABLE: force all user files beside the executable' -Quiet)) {
         throw "Portable AppSettings save path marker not found"
     }
