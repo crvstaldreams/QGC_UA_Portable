@@ -155,6 +155,7 @@ try {
     $serviceServoQml = Join-Path $QgcRoot "custom\qml\ServiceServoSafety.qml"
     $serviceMavlinkQml = Join-Path $QgcRoot "custom\qml\ServiceMavlinkStatus.qml"
     $serviceMPParamsQml = Join-Path $QgcRoot "custom\qml\ServiceMPParams.qml"
+    $serviceMPParamsWindowQml = Join-Path $QgcRoot "custom\qml\ServiceMPParamsWindow.qml"
     $mpParamsController = Join-Path $QgcRoot "custom\src\MPParamsController.cc"
     if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
         throw "Service mode menu button marker not found"
@@ -192,6 +193,14 @@ try {
 
     if (-not (Test-Path $serviceMPParamsQml -PathType Leaf)) {
         throw "ServiceMPParams.qml missing from custom overlay"
+    }
+    if (-not (Test-Path $serviceMPParamsWindowQml -PathType Leaf)) {
+        throw "ServiceMPParamsWindow.qml missing from custom overlay"
+    }
+    foreach ($windowMarker in @('ApplicationWindow', 'ServiceMPParams\.qml')) {
+        if (-not (Select-String -Path $serviceMPParamsWindowQml -Pattern $windowMarker -Quiet)) {
+            throw "MP Params window marker not found: $windowMarker"
+        }
     }
     foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'uiScale:\s*0\.84')) {
         if (-not (Select-String -Path $serviceMPParamsQml -Pattern $mpMarker -Quiet)) {
