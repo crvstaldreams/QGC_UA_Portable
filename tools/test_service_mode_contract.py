@@ -26,6 +26,13 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("activeVehicle.gps.hdop.valueString", self.service)
         self.assertIn("QGCCompassWidget", self.service)
 
+    def test_service_telemetry_fits_one_screen_without_scroll(self):
+        self.assertNotIn("QGCFlickable {\n                id: serviceInfoScroll", self.service)
+        self.assertIn("id: serviceInfoPanel", self.service)
+        self.assertIn("RowLayout {", self.service)
+        self.assertIn("columns: 4", self.service)
+        self.assertIn("Крен %1°   Тангаж %2°", self.service)
+
     def test_parameter_view_has_tree_table_and_explanation_panel(self):
         self.assertIn("Дерево параметрів", self.params)
         self.assertIn("controller.categories", self.params)
