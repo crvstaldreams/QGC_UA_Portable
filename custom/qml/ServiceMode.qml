@@ -74,6 +74,10 @@ Rectangle {
         currentPage = "servoSafety"
     }
 
+    function showMavlinkStatus() {
+        currentPage = "mavlinkStatus"
+    }
+
     function reconnectVehicle() {
         if (activeVehicle) {
             activeVehicle.rebootVehicle()
@@ -106,6 +110,9 @@ Rectangle {
         if (currentPage === "servoSafety") {
             return parametersReady ? "qrc:/qml/QGroundControl/Custom/ServiceServoSafety.qml" : ""
         }
+        if (currentPage === "mavlinkStatus") {
+            return activeVehicle ? "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml" : ""
+        }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
         }
@@ -123,6 +130,9 @@ Rectangle {
         }
         if (currentPage === "servoSafety") {
             return "Підключіть борт і дочекайтеся завантаження параметрів."
+        }
+        if (currentPage === "mavlinkStatus") {
+            return "Підключіть борт, щоб відкрити MAVLink Status."
         }
         if (currentPage === "summary") {
             return "Підключіть борт, щоб відкрити огляд."
@@ -201,6 +211,14 @@ Rectangle {
 
                 QGCButton {
                     Layout.fillWidth: true
+                    text: "MAVLink Status"
+                    checked: currentPage === "mavlinkStatus"
+                    enabled: !!activeVehicle
+                    onClicked: showMavlinkStatus()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
                     text: "Реконнект"
                     enabled: !!activeVehicle
                     onClicked: reconnectVehicle()
@@ -212,7 +230,7 @@ Rectangle {
 
                 QGCLabel {
                     Layout.fillWidth: true
-                    text: "Сервісний режим: огляд, прошивка, параметри, датчики, Servo/Saf.Mask та перезавантаження борту."
+                    text: "Сервісний режим: огляд, прошивка, параметри, датчики, Servo/Saf.Mask, MAVLink Status та перезавантаження борту."
                     wrapMode: Text.WordWrap
                     font.pointSize: ScreenTools.smallFontPointSize
                     color: qgcPal.text
