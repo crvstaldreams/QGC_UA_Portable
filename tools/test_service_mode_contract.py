@@ -33,6 +33,12 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("columns: 4", self.service)
         self.assertIn("Крен %1°   Тангаж %2°", self.service)
 
+    def test_sensor_component_uses_v508_qvariantlist_and_reconnect_reboots_vehicle(self):
+        self.assertIn("components.length", self.service)
+        self.assertIn("components[i]", self.service)
+        self.assertIn('text: "Реконнект"', self.service)
+        self.assertIn("activeVehicle.rebootVehicle()", self.service)
+
     def test_parameter_view_has_tree_table_and_explanation_panel(self):
         self.assertIn("Дерево параметрів", self.params)
         self.assertIn("controller.categories", self.params)
