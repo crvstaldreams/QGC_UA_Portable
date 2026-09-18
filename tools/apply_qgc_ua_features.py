@@ -384,6 +384,55 @@ def patch_centered_tool_menu(root: Path) -> Path:
     return path
 
 
+def patch_service_mode_menu(root: Path) -> Path:
+    path = locate_unique(root, "MainWindow.qml", ("function showVehicleConfig", "id: setupButton", "id: settingsButton"))
+    text = path.read_text(encoding="utf-8")
+
+    vehicle_function = '''    function showVehicleConfig() {
+        showTool(qsTr("Vehicle Configuration"), "qrc:/qml/QGroundControl/VehicleSetup/SetupView.qml", "/qmlimages/Gears.svg")
+    }
+'''
+    vehicle_with_service = vehicle_function + '''
+    function showServiceMode() {
+        showTool(qsTr("Спрощ. режим для сервісу"), "qrc:/qml/QGroundControl/Custom/ServiceMode.qml", "/qmlimages/Gears.svg")
+    }
+'''
+    text = replace_once(text, vehicle_function, vehicle_with_service, "service mode show function")
+
+    setup_block = '''                        SubMenuButton {
+                            id:                 setupButton
+                            height:             toolSelectDialog._toolButtonHeight
+                            Layout.fillWidth:   true
+                            text:               qsTr("Vehicle Configuration")
+                            imageResource:      "/qmlimages/Gears.svg"
+                            onClicked: {
+                                if (mainWindow.allowViewSwitch()) {
+                                    mainWindow.closeIndicatorDrawer()
+                                    mainWindow.showVehicleConfig()
+                                }
+                            }
+                        }
+'''
+    service_button = setup_block + '''
+                        SubMenuButton {
+                            id:                 serviceModeButton
+                            height:             toolSelectDialog._toolButtonHeight
+                            Layout.fillWidth:   true
+                            text:               qsTr("Спрощ. режим для сервісу")
+                            imageResource:      "/qmlimages/Gears.svg"
+                            onClicked: {
+                                if (mainWindow.allowViewSwitch()) {
+                                    mainWindow.closeIndicatorDrawer()
+                                    mainWindow.showServiceMode()
+                                }
+                            }
+                        }
+'''
+    text = replace_once(text, setup_block, service_button, "service mode menu button")
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
 def patch_splash(root: Path) -> Path:
     path = root / "src" / "main.cc"
     text = path.read_text(encoding="utf-8")
@@ -487,6 +536,7 @@ def main() -> int:
         changed.append(patch_vehicle_message_list(root))
         changed.append(patch_main_status(root))
         changed.append(patch_centered_tool_menu(root))
+        changed.append(patch_service_mode_menu(root))
         changed.append(patch_splash(root))
         verify_markers(changed)
     except (FeaturePatchError, OSError) as exc:
