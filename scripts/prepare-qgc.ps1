@@ -60,7 +60,8 @@ try {
     Write-Host "=== Generate complete Ukrainian translations ==="
     $translationGenerator = Join-Path $OverlayRoot "tools\generate_ukrainian_translations.py"
     $translationCache = Join-Path $OverlayRoot "translation-cache\en_uk.json"
-    & python $translationGenerator --source-root $QgcRoot --cache $translationCache
+    $translationOverrides = Join-Path $OverlayRoot "translations\uk_manual_overrides.json"
+    & python $translationGenerator --source-root $QgcRoot --cache $translationCache --overrides $translationOverrides
     if ($LASTEXITCODE -ne 0) { throw "generate_ukrainian_translations.py failed" }
 
     Write-Host "=== Apply scoped MAVLink Status UI customization ==="
@@ -146,6 +147,8 @@ try {
         'text:\s*"Прошивка"',
         'text:\s*"Параметри"',
         'text:\s*"Датчики"',
+        'text:\s*"Реконнект"',
+        'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
         'FlightMap',
         'activeVehicle\.gps\.count\.valueString',
