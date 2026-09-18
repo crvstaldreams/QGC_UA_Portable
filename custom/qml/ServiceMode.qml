@@ -36,8 +36,12 @@ Rectangle {
             return null
         }
 
-        for (let i = 0; i < components.count; i++) {
-            const component = components.get(i)
+        // QGC v5.0.8 exposes vehicleComponents as QVariantList, which is a
+        // JavaScript array in QML. Prefer length/indexing; keep a fallback for
+        // list-model based customs.
+        const componentCount = components.length !== undefined ? components.length : components.count
+        for (let i = 0; i < componentCount; i++) {
+            const component = components[i] !== undefined ? components[i] : components.get(i)
             if (!component) {
                 continue
             }
@@ -64,6 +68,12 @@ Rectangle {
 
     function showSensors() {
         currentPage = "sensors"
+    }
+
+    function reconnectVehicle() {
+        if (activeVehicle) {
+            activeVehicle.rebootVehicle()
+        }
     }
 
     // VehicleSummary.qml calls this when a summary card is clicked. In service
@@ -169,6 +179,13 @@ Rectangle {
                     checked: currentPage === "sensors"
                     enabled: activeVehicle && sensorComponent
                     onClicked: showSensors()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
+                    text: "Реконнект"
+                    enabled: !!activeVehicle
+                    onClicked: reconnectVehicle()
                 }
 
                 Item {
