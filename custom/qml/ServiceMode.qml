@@ -16,7 +16,6 @@ Rectangle {
                                    activeVehicle &&
                                    !activeVehicle.parameterManager.missingParameters
     property var sensorComponent: findSensorComponent()
-    property var mpParamsWindow: null
 
     QGCPalette {
         id: qgcPal
@@ -76,25 +75,7 @@ Rectangle {
     }
 
     function showMPParams() {
-        if (mpParamsWindow) {
-            mpParamsWindow.show()
-            mpParamsWindow.raise()
-            mpParamsWindow.requestActivate()
-            return
-        }
-
-        const component = Qt.createComponent("qrc:/qml/QGroundControl/Custom/ServiceMPParamsWindow.qml")
-        if (component.status !== Component.Ready) {
-            console.warn("MP Params window load failed:", component.errorString())
-            return
-        }
-
-        mpParamsWindow = component.createObject(null)
-        if (mpParamsWindow) {
-            mpParamsWindow.show()
-            mpParamsWindow.raise()
-            mpParamsWindow.requestActivate()
-        }
+        currentPage = "mpParams"
     }
 
     function reconnectVehicle() {
@@ -132,6 +113,9 @@ Rectangle {
         if (currentPage === "mavlinkStatus") {
             return activeVehicle ? "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml" : ""
         }
+        if (currentPage === "mpParams") {
+            return "qrc:/qml/QGroundControl/Custom/ServiceMPParams.qml"
+        }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
         }
@@ -152,6 +136,9 @@ Rectangle {
         }
         if (currentPage === "mavlinkStatus") {
             return "Підключіть борт, щоб відкрити MAVLink Status."
+        }
+        if (currentPage === "mpParams") {
+            return ""
         }
         if (currentPage === "summary") {
             return "Підключіть борт, щоб відкрити огляд."
@@ -239,6 +226,7 @@ Rectangle {
                 QGCButton {
                     Layout.fillWidth: true
                     text: "MP Params"
+                    checked: currentPage === "mpParams"
                     onClicked: showMPParams()
                 }
 
