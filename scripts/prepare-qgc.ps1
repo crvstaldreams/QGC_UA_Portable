@@ -137,6 +137,9 @@ try {
     if (-not (Select-String -Path $mainSource -Pattern 'QGroundControl Portable' -Quiet)) {
         throw "Portable splash screen marker not found"
     }
+    if (-not (Select-String -Path $mainSource -Pattern 'QGC_UI_BOOT_OK' -Quiet)) {
+        throw "Full UI boot test marker not found"
+    }
     if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'autoCloseSeconds:\s*60' -Quiet } | Select-Object -First 1)) {
         throw "MAVLink Status 60-second auto-close marker not found"
     }
@@ -172,7 +175,7 @@ try {
             throw "Unfinished Vsratyi translations remain in $vsratyiFile"
         }
     }
-    foreach ($marker in @('QStringLiteral\("Всратий"\)', 'kVsratyiLanguageId')) {
+    foreach ($marker in @('QStringLiteral\("Всратий"\)', 'QLocale::Esperanto')) {
         if (-not (Select-String -Path $appSettingsSource -Pattern $marker -Quiet)) {
             throw "Vsratyi language selector marker missing: $marker"
         }
