@@ -205,7 +205,6 @@ try {
         'text:\s*"Реконнект"',
         'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
-        'FlightMap',
         'activeVehicle\.gps\.count\.valueString',
         'activeVehicle\.gps\.lock\.enumStringValue',
         'QGCCompassWidget'
