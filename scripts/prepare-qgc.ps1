@@ -140,6 +140,9 @@ try {
     if (-not (Select-String -Path $mainSource -Pattern 'QGC_UI_BOOT_OK' -Quiet)) {
         throw "Full UI boot test marker not found"
     }
+    if (-not (Select-String -Path $mainSource -Pattern 'QGC_STARTUP_WINDOW_RECOVERY' -Quiet)) {
+        throw "Startup main-window recovery marker not found"
+    }
     if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'autoCloseSeconds:\s*60' -Quiet } | Select-Object -First 1)) {
         throw "MAVLink Status 60-second auto-close marker not found"
     }
