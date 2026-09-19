@@ -675,6 +675,18 @@ def patch_splash(root: Path) -> Path:
     path = root / "src" / "main.cc"
     text = path.read_text(encoding="utf-8")
 
+    ui_boot_var_marker = "    bool simpleBootTest = false;\n"
+    ui_boot_var_replacement = """    bool simpleBootTest = false;
+    bool uiBootTest = false;
+"""
+    text = replace_once(text, ui_boot_var_marker, ui_boot_var_replacement, "full UI boot test flag")
+
+    ui_boot_option_marker = '        { "--simple-boot-test",     &simpleBootTest,        nullptr },\n'
+    ui_boot_option_replacement = '''        { "--simple-boot-test",     &simpleBootTest,        nullptr },
+        { "--ui-boot-test",         &uiBootTest,            nullptr },
+'''
+    text = replace_once(text, ui_boot_option_marker, ui_boot_option_replacement, "full UI boot test option")
+
     include_marker = "#include <QtWidgets/QApplication>\n"
     include_block = '''#include <QtWidgets/QApplication>
 #include <QtWidgets/QSplashScreen>
@@ -684,6 +696,7 @@ def patch_splash(root: Path) -> Path:
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEventLoop>
 #include <QtCore/QThread>
+#include <QtQuick/QQuickWindow>
 '''
     text = replace_once(text, include_marker, include_block, "portable splash includes")
 
@@ -737,6 +750,32 @@ def patch_splash(root: Path) -> Path:
         portableSplash = nullptr;
         app.processEvents();
     }
+
+    if (uiBootTest) {
+        QQuickWindow *window = app.mainRootWindow();
+        if (!window) {
+            qCritical() << "QGC_UI_BOOT_FAIL: mainRootWindow is null";
+            app.shutdown();
+            return 91;
+        }
+
+        QElapsedTimer uiBootTimer;
+        uiBootTimer.start();
+        while (uiBootTimer.elapsed() < 1500) {
+            app.processEvents(QEventLoop::AllEvents, 20);
+            QThread::msleep(10);
+        }
+
+        if (!window->isVisible()) {
+            qCritical() << "QGC_UI_BOOT_FAIL: main window exists but is not visible";
+            app.shutdown();
+            return 92;
+        }
+
+        qInfo() << "QGC_UI_BOOT_OK";
+        app.shutdown();
+        return 0;
+    }
 '''
     text = replace_once(text, init_marker, close_block, "portable splash close")
     path.write_text(text, encoding="utf-8", newline="\n")
@@ -753,7 +792,7 @@ def verify_markers(paths: list[Path]) -> None:
         "QGCTextField.qml": "control.activeFocus ? 3 : 2",
         "MainWindow.qml": "centerOnWindow",
         "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
-        "main.cc": "QGroundControl Portable",
+        "main.cc": "QGC_UI_BOOT_OK",
     }
     for path in paths:
         marker = required.get(path.name)
