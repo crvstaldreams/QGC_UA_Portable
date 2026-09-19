@@ -40,8 +40,9 @@ class VsratyiTranslationTest(unittest.TestCase):
         )
 
     def test_vsratyi_uses_custom_id_and_ukrainian_locale(self):
-        self.assertIn("kVsratyiLanguageId = 10001", self.patch)
+        self.assertIn("QLocale::Esperanto", self.patch)
         self.assertIn("return QLocale::Ukrainian", self.patch)
+        self.assertNotIn("10001", self.patch)
         self.assertIn("qgc_source_vsratyi", self.patch)
         self.assertIn("qgc_json_vsratyi", self.patch)
         self.assertIn('QStringLiteral("Всратий")', self.patch)
