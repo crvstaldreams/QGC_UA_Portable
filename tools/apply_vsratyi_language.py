@@ -4,9 +4,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-VSRATYI_LANGUAGE_ID = 10001
-
-
 def replace_once(text: str, old: str, new: str, label: str) -> str:
     if old not in text:
         raise RuntimeError(f"{label}: anchor not found")
@@ -17,7 +14,7 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 def patch_app_settings_h(path: Path) -> None:
     text = path.read_text(encoding="utf-8")
-    marker = "kVsratyiLanguageId"
+    marker = "_vsratyiLanguageEarlyAccess"
     if marker in text:
         return
 
@@ -25,9 +22,8 @@ def patch_app_settings_h(path: Path) -> None:
 
     static QList<QLocale::Language> _rgReleaseLanguages;
 """
-    new = f"""    static QLocale::Language _qLocaleLanguageEarlyAccess(void);
+    new = """    static QLocale::Language _qLocaleLanguageEarlyAccess(void);
     static bool _vsratyiLanguageEarlyAccess(void);
-    static constexpr int kVsratyiLanguageId = {VSRATYI_LANGUAGE_ID};
 
     static QList<QLocale::Language> _rgReleaseLanguages;
 """
@@ -57,19 +53,19 @@ def patch_app_settings_cc(path: Path) -> None:
         // STREAM-TECHNO: humorous Ukrainian pseudo-locale. It intentionally
         // uses its own settings id while QGCApplication applies QLocale::Ukrainian.
         rgEnumStrings.append(QStringLiteral("Всратий"));
-        rgEnumValues.append(kVsratyiLanguageId);
+        rgEnumValues.append(QLocale::Esperanto);
 
 #ifdef QGC_DAILY_BUILD
 """
         text = replace_once(text, old, new, "AppSettings.cc language list")
 
-    if "rawLanguage == kVsratyiLanguageId" not in text:
+    if "rawLanguage == QLocale::Esperanto" not in text:
         old = """    // Note that the AppSettings group has no group name
     QLocale::Language localeLanguage = static_cast<QLocale::Language>(settings.value(qLocaleLanguageName).toInt());
 """
         new = """    // Note that the AppSettings group has no group name
     const int rawLanguage = settings.value(qLocaleLanguageName).toInt();
-    if (rawLanguage == kVsratyiLanguageId) {
+    if (rawLanguage == QLocale::Esperanto) {
         return QLocale::Ukrainian;
     }
 
@@ -85,13 +81,13 @@ def patch_app_settings_cc(path: Path) -> None:
         if idx < 0:
             raise RuntimeError("AppSettings.cc helper insertion anchor not found")
         insert_at = idx + len(anchor)
-        helper = f"""
+        helper = """
 
 bool AppSettings::_vsratyiLanguageEarlyAccess(void)
-{{
+{
     QSettings settings;
-    return settings.value(qLocaleLanguageName, QLocale::English).toInt() == kVsratyiLanguageId;
-}}
+    return settings.value(qLocaleLanguageName, QLocale::English).toInt() == QLocale::Esperanto;
+}
 """
         text = text[:insert_at] + helper + text[insert_at:]
 
@@ -157,8 +153,8 @@ def verify(root: Path) -> None:
     qgc = (root / "src/QGCApplication.cc").read_text(encoding="utf-8")
 
     required = {
-        "AppSettings.h": ["kVsratyiLanguageId = 10001", "_vsratyiLanguageEarlyAccess"],
-        "AppSettings.cc": ['QStringLiteral("Всратий")', "rawLanguage == kVsratyiLanguageId"],
+        "AppSettings.h": ["_vsratyiLanguageEarlyAccess"],
+        "AppSettings.cc": ['QStringLiteral("Всратий")', "QLocale::Esperanto", "return QLocale::Ukrainian"],
         "QGCApplication.cc": ["qgc_source_vsratyi", "qgc_json_vsratyi", "vsratyiLanguage"],
     }
     for label, markers in required.items():
