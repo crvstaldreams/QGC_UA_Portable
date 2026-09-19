@@ -160,9 +160,28 @@ jobs:
         run: |
           $exe = Join-Path $env:BUILD_DIR "Release\QGroundControl-UA.exe"
           Write-Host "Running full UI boot test: $exe"
-          & $exe --ui-boot-test
-          $exitCode = $LASTEXITCODE
+
+          $stdout = Join-Path $env:GITHUB_WORKSPACE "ui-boot-stdout.log"
+          $stderr = Join-Path $env:GITHUB_WORKSPACE "ui-boot-stderr.log"
+
+          $process = Start-Process -FilePath $exe -ArgumentList "--ui-boot-test" -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $exited = $process.WaitForExit(15000)
+
+          if (-not $exited) {
+              Write-Host "Full UI boot test timed out. Killing hung process PID $($process.Id)."
+              Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              if (Test-Path $stdout) { Get-Content $stdout }
+              if (Test-Path $stderr) { Get-Content $stderr }
+              throw "QGroundControl-UA.exe --ui-boot-test hung for more than 15 seconds"
+          }
+
+          $process.Refresh()
+          $exitCode = $process.ExitCode
           Write-Host "Full UI boot test exit code: $exitCode"
+
+          if (Test-Path $stdout) { Get-Content $stdout }
+          if (Test-Path $stderr) { Get-Content $stderr }
+
           if ($exitCode -ne 0) {
               throw "QGroundControl-UA.exe --ui-boot-test failed with exit code $exitCode"
           }
@@ -264,6 +283,12 @@ jobs:
           $buildOutput = Join-Path $env:GITHUB_WORKSPACE "build-output.log"
           if (Test-Path $buildOutput) {
               Copy-Item $buildOutput (Join-Path $logDir "build-output.log") -Force
+          }
+          foreach ($uiBootLogName in @("ui-boot-stdout.log","ui-boot-stderr.log")) {
+              $uiBootLog = Join-Path $env:GITHUB_WORKSPACE $uiBootLogName
+              if (Test-Path $uiBootLog) {
+                  Copy-Item $uiBootLog (Join-Path $logDir $uiBootLogName) -Force
+              }
           }
           if (Test-Path $env:BUILD_DIR) {
               Get-ChildItem -Path $env:BUILD_DIR -Recurse -File -Include "CMakeCache.txt","CMakeConfigureLog.yaml","*.log" -ErrorAction SilentlyContinue |
