@@ -16,7 +16,7 @@ Item {
     property var linkManager: QGroundControl.linkManager
     property var appSettings: QGroundControl.settingsManager.appSettings
     property var mpLinkConfig: null
-    property real uiScale: 0.84
+    property real uiScale: 0.72
     property var tableWidths: [
         ScreenTools.defaultFontPixelWidth * 17,
         ScreenTools.defaultFontPixelWidth * 11,
