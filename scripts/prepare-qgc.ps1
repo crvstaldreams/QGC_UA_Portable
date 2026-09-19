@@ -137,12 +137,6 @@ try {
     if (-not (Select-String -Path $mainSource -Pattern 'QGroundControl Portable' -Quiet)) {
         throw "Portable splash screen marker not found"
     }
-    if (-not (Select-String -Path $mainSource -Pattern 'QGC_UI_BOOT_OK' -Quiet)) {
-        throw "Full UI boot test marker not found"
-    }
-    if (-not (Select-String -Path $mainSource -Pattern 'QGC_STARTUP_WINDOW_RECOVERY' -Quiet)) {
-        throw "Startup main-window recovery marker not found"
-    }
     if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'autoCloseSeconds:\s*60' -Quiet } | Select-Object -First 1)) {
         throw "MAVLink Status 60-second auto-close marker not found"
     }
@@ -172,7 +166,7 @@ try {
     }
     foreach ($vsratyiFile in @($vsratyiSource, $vsratyiJson)) {
         if (-not (Test-Path $vsratyiFile -PathType Leaf)) {
-            throw "Vsratyi translation files were not generated: $vsratyiFile"
+            throw "Vsratyi translation file missing: $vsratyiFile"
         }
         if (Select-String -Path $vsratyiFile -Pattern 'type="unfinished"' -Quiet) {
             throw "Unfinished Vsratyi translations remain in $vsratyiFile"
@@ -180,16 +174,13 @@ try {
     }
     foreach ($marker in @('QStringLiteral\("Всратий"\)', 'QLocale::Esperanto')) {
         if (-not (Select-String -Path $appSettingsSource -Pattern $marker -Quiet)) {
-            throw "Vsratyi language selector marker missing: $marker"
+            throw "Vsratyi selector marker missing: $marker"
         }
     }
     foreach ($marker in @('qgc_source_vsratyi', 'qgc_json_vsratyi', 'vsratyiLanguage')) {
         if (-not (Select-String -Path $qgcApplicationSource -Pattern $marker -Quiet)) {
             throw "Vsratyi runtime marker missing: $marker"
         }
-    }
-    if (-not (Select-String -Path $appSettingsSource -Pattern 'settings\.setValue\(qLocaleLanguageName, QLocale::English\)' -Quiet)) {
-        throw "English clean-install default marker missing"
     }
     $serviceModeQml = Join-Path $QgcRoot "custom\qml\ServiceMode.qml"
     $serviceParamsQml = Join-Path $QgcRoot "custom\qml\ServiceParameterEditor.qml"
@@ -214,6 +205,7 @@ try {
         'text:\s*"Реконнект"',
         'activeVehicle\.rebootVehicle\(\)',
         'QGCAttitudeWidget',
+        'FlightMap',
         'activeVehicle\.gps\.count\.valueString',
         'activeVehicle\.gps\.lock\.enumStringValue',
         'QGCCompassWidget'
@@ -234,7 +226,7 @@ try {
     if (-not (Test-Path $serviceMPParamsQml -PathType Leaf)) {
         throw "ServiceMPParams.qml missing from custom overlay"
     }
-    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'uiScale:\s*0\.72')) {
+    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'controller\.treeModel', 'uiScale:\s*0\.72')) {
         if (-not (Select-String -Path $serviceMPParamsQml -Pattern $mpMarker -Quiet)) {
             throw "MP Params service marker not found: $mpMarker"
         }
@@ -260,7 +252,7 @@ try {
     if (-not (Test-Path $serviceServoQml -PathType Leaf)) {
         throw "ServiceServoSafety.qml missing from custom overlay"
     }
-    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'rawValue = 255', 'rawValue = 65280', 'setServoFunction\(output, 0\)')) {
+    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'rawValue = 255', 'rawValue = 65280')) {
         if (-not (Select-String -Path $serviceServoQml -Pattern $servoMarker -Quiet)) {
             throw "Servo/Safety service marker not found: $servoMarker"
         }

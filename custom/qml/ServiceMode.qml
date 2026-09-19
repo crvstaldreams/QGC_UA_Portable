@@ -370,6 +370,8 @@ Rectangle {
                 }
 
                 QGCCompassWidget {
+                    Layout.preferredWidth: serviceInfoPanel.instrumentSize
+                    Layout.preferredHeight: serviceInfoPanel.instrumentSize
                     Layout.alignment: Qt.AlignHCenter
                     size: serviceInfoPanel.instrumentSize
                     vehicle: activeVehicle
@@ -392,6 +394,8 @@ Rectangle {
                 }
 
                 QGCAttitudeWidget {
+                    Layout.preferredWidth: serviceInfoPanel.instrumentSize
+                    Layout.preferredHeight: serviceInfoPanel.instrumentSize
                     Layout.alignment: Qt.AlignHCenter
                     size: serviceInfoPanel.instrumentSize
                     vehicle: activeVehicle

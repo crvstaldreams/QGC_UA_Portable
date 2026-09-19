@@ -675,29 +675,15 @@ def patch_splash(root: Path) -> Path:
     path = root / "src" / "main.cc"
     text = path.read_text(encoding="utf-8")
 
-    ui_boot_var_marker = "    bool simpleBootTest = false;\n"
-    ui_boot_var_replacement = """    bool simpleBootTest = false;
-    bool uiBootTest = false;
-"""
-    text = replace_once(text, ui_boot_var_marker, ui_boot_var_replacement, "full UI boot test flag")
-
-    ui_boot_option_marker = '        { "--simple-boot-test",     &simpleBootTest,        nullptr },\n'
-    ui_boot_option_replacement = '''        { "--simple-boot-test",     &simpleBootTest,        nullptr },
-        { "--ui-boot-test",         &uiBootTest,            nullptr },
-'''
-    text = replace_once(text, ui_boot_option_marker, ui_boot_option_replacement, "full UI boot test option")
-
     include_marker = "#include <QtWidgets/QApplication>\n"
     include_block = '''#include <QtWidgets/QApplication>
 #include <QtWidgets/QSplashScreen>
 #include <QtGui/QFont>
 #include <QtGui/QFontDatabase>
 #include <QtGui/QPainter>
-#include <QtGui/QScreen>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEventLoop>
 #include <QtCore/QThread>
-#include <QtQuick/QQuickWindow>
 '''
     text = replace_once(text, include_marker, include_block, "portable splash includes")
 
@@ -741,49 +727,6 @@ def patch_splash(root: Path) -> Path:
     init_marker = "    app.init();\n"
     close_block = '''    app.init();
 
-    // QGC_STARTUP_WINDOW_RECOVERY
-    // Portable builds can inherit stale/off-screen window geometry across revisions.
-    // Make sure the main QML window is visible and intersects at least one screen.
-    if (!runUnitTests && !simpleBootTest) {
-        if (QQuickWindow *mainWindow = app.mainRootWindow()) {
-            bool intersectsAvailableScreen = false;
-            const QRect windowRect(mainWindow->x(), mainWindow->y(), mainWindow->width(), mainWindow->height());
-            for (QScreen *screen : QGuiApplication::screens()) {
-                if (screen && screen->availableGeometry().intersects(windowRect)) {
-                    intersectsAvailableScreen = true;
-                    break;
-                }
-            }
-
-            if (!intersectsAvailableScreen) {
-                if (QScreen *screen = QGuiApplication::primaryScreen()) {
-                    const QRect available = screen->availableGeometry();
-                    const int safeWidth = qMin(qMax(mainWindow->width(), 960), available.width());
-                    const int safeHeight = qMin(qMax(mainWindow->height(), 640), available.height());
-                    mainWindow->resize(safeWidth, safeHeight);
-                    mainWindow->setPosition(
-                        available.x() + (available.width() - safeWidth) / 2,
-                        available.y() + (available.height() - safeHeight) / 2);
-                }
-            }
-
-            if (!mainWindow->isVisible()) {
-                mainWindow->show();
-            }
-            if (mainWindow->visibility() == QWindow::Minimized) {
-                mainWindow->showNormal();
-            }
-            mainWindow->raise();
-            mainWindow->requestActivate();
-            app.processEvents(QEventLoop::AllEvents, 50);
-            qInfo() << "QGC_STARTUP_WINDOW_RECOVERY"
-                    << "visible=" << mainWindow->isVisible()
-                    << "geometry=" << mainWindow->geometry();
-        } else {
-            qCritical() << "QGC_STARTUP_WINDOW_RECOVERY: mainRootWindow is null";
-        }
-    }
-
     if (portableSplash) {
         while (portableSplashTimer.elapsed() < 1200) {
             app.processEvents(QEventLoop::AllEvents, 20);
@@ -793,32 +736,6 @@ def patch_splash(root: Path) -> Path:
         delete portableSplash;
         portableSplash = nullptr;
         app.processEvents();
-    }
-
-    if (uiBootTest) {
-        QQuickWindow *window = app.mainRootWindow();
-        if (!window) {
-            qCritical() << "QGC_UI_BOOT_FAIL: mainRootWindow is null";
-            app.shutdown();
-            return 91;
-        }
-
-        QElapsedTimer uiBootTimer;
-        uiBootTimer.start();
-        while (uiBootTimer.elapsed() < 1500) {
-            app.processEvents(QEventLoop::AllEvents, 20);
-            QThread::msleep(10);
-        }
-
-        if (!window->isVisible()) {
-            qCritical() << "QGC_UI_BOOT_FAIL: main window exists but is not visible";
-            app.shutdown();
-            return 92;
-        }
-
-        qInfo() << "QGC_UI_BOOT_OK";
-        app.shutdown();
-        return 0;
     }
 '''
     text = replace_once(text, init_marker, close_block, "portable splash close")
@@ -836,7 +753,7 @@ def verify_markers(paths: list[Path]) -> None:
         "QGCTextField.qml": "control.activeFocus ? 3 : 2",
         "MainWindow.qml": "centerOnWindow",
         "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
-        "main.cc": "QGC_STARTUP_WINDOW_RECOVERY",
+        "main.cc": "QGroundControl Portable",
     }
     for path in paths:
         marker = required.get(path.name)

@@ -47,10 +47,9 @@ class VsratyiTranslationTest(unittest.TestCase):
         self.assertIn("qgc_json_vsratyi", self.patch)
         self.assertIn('QStringLiteral("Всратий")', self.patch)
 
-    def test_clean_install_defaults_to_english(self):
-        self.assertIn("settings.setValue(qLocaleLanguageName, QLocale::English)", self.default_patch)
-        self.assertIn("return QLocale::English", self.default_patch)
-        self.assertNotIn("settings.setValue(qLocaleLanguageName, QLocale::Ukrainian)", self.default_patch)
+    def test_clean_install_keeps_build_120_ukrainian_default(self):
+        self.assertIn("settings.setValue(qLocaleLanguageName, QLocale::Ukrainian)", self.default_patch)
+        self.assertIn("return QLocale::Ukrainian", self.default_patch)
 
 
 if __name__ == "__main__":
