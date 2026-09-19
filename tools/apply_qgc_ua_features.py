@@ -693,6 +693,7 @@ def patch_splash(root: Path) -> Path:
 #include <QtGui/QFont>
 #include <QtGui/QFontDatabase>
 #include <QtGui/QPainter>
+#include <QtGui/QScreen>
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QEventLoop>
 #include <QtCore/QThread>
@@ -739,6 +740,49 @@ def patch_splash(root: Path) -> Path:
 
     init_marker = "    app.init();\n"
     close_block = '''    app.init();
+
+    // QGC_STARTUP_WINDOW_RECOVERY
+    // Portable builds can inherit stale/off-screen window geometry across revisions.
+    // Make sure the main QML window is visible and intersects at least one screen.
+    if (!runUnitTests && !simpleBootTest) {
+        if (QQuickWindow *mainWindow = app.mainRootWindow()) {
+            bool intersectsAvailableScreen = false;
+            const QRect windowRect(mainWindow->x(), mainWindow->y(), mainWindow->width(), mainWindow->height());
+            for (QScreen *screen : QGuiApplication::screens()) {
+                if (screen && screen->availableGeometry().intersects(windowRect)) {
+                    intersectsAvailableScreen = true;
+                    break;
+                }
+            }
+
+            if (!intersectsAvailableScreen) {
+                if (QScreen *screen = QGuiApplication::primaryScreen()) {
+                    const QRect available = screen->availableGeometry();
+                    const int safeWidth = qMin(qMax(mainWindow->width(), 960), available.width());
+                    const int safeHeight = qMin(qMax(mainWindow->height(), 640), available.height());
+                    mainWindow->resize(safeWidth, safeHeight);
+                    mainWindow->setPosition(
+                        available.x() + (available.width() - safeWidth) / 2,
+                        available.y() + (available.height() - safeHeight) / 2);
+                }
+            }
+
+            if (!mainWindow->isVisible()) {
+                mainWindow->show();
+            }
+            if (mainWindow->visibility() == QWindow::Minimized) {
+                mainWindow->showNormal();
+            }
+            mainWindow->raise();
+            mainWindow->requestActivate();
+            app.processEvents(QEventLoop::AllEvents, 50);
+            qInfo() << "QGC_STARTUP_WINDOW_RECOVERY"
+                    << "visible=" << mainWindow->isVisible()
+                    << "geometry=" << mainWindow->geometry();
+        } else {
+            qCritical() << "QGC_STARTUP_WINDOW_RECOVERY: mainRootWindow is null";
+        }
+    }
 
     if (portableSplash) {
         while (portableSplashTimer.elapsed() < 1200) {
@@ -792,7 +836,7 @@ def verify_markers(paths: list[Path]) -> None:
         "QGCTextField.qml": "control.activeFocus ? 3 : 2",
         "MainWindow.qml": "centerOnWindow",
         "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
-        "main.cc": "QGC_UI_BOOT_OK",
+        "main.cc": "QGC_STARTUP_WINDOW_RECOVERY",
     }
     for path in paths:
         marker = required.get(path.name)
