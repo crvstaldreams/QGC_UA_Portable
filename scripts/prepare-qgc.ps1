@@ -157,6 +157,7 @@ try {
     $serviceServoQml = Join-Path $QgcRoot "custom\qml\ServiceServoSafety.qml"
     $serviceMavlinkQml = Join-Path $QgcRoot "custom\qml\ServiceMavlinkStatus.qml"
     $serviceMPParamsQml = Join-Path $QgcRoot "custom\qml\ServiceMPParams.qml"
+    $serviceMapQml = Join-Path $QgcRoot "custom\qml\ServiceMap.qml"
     $mpParamsController = Join-Path $QgcRoot "custom\src\MPParamsController.cc"
     if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
         throw "Service mode menu button marker not found"
@@ -166,6 +167,7 @@ try {
     }
     foreach ($serviceMarker in @(
         'text:\s*"Огляд"',
+        'text:\s*"Карта"',
         'text:\s*"Прошивка"',
         'text:\s*"Параметри"',
         'text:\s*"Датчики"',
@@ -183,6 +185,15 @@ try {
             throw "Service mode marker not found: $serviceMarker"
         }
     }
+    if (-not (Test-Path $serviceMapQml -PathType Leaf)) {
+        throw "ServiceMap.qml missing from custom overlay"
+    }
+    foreach ($mapMarker in @('FlightMap\s*\{', 'VehicleMapItem', 'allowVehicleLocationCenter:\s*true', 'mapName:\s*"ServiceMap"')) {
+        if (-not (Select-String -Path $serviceMapQml -Pattern $mapMarker -Quiet)) {
+            throw "Service map marker not found: $mapMarker"
+        }
+    }
+
     $flyToolbarQml = Join-Path $QgcRoot "src\QmlControls\FlyViewToolBar.qml"
     if (-not (Select-String -Path $flyToolbarQml -Pattern 'quickVehicleSetupRow' -Quiet)) {
         throw "Vehicle Setup quick toolbar marker not found"
@@ -232,7 +243,7 @@ try {
     if (-not (Test-Path $serviceServoQml -PathType Leaf)) {
         throw "ServiceServoSafety.qml missing from custom overlay"
     }
-    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'applyServoProfile', 'setServoFunction\(output, 0\)', 'motorInterlock', '255,', '65280,')) {
+    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'applyServoProfile', 'setServoFunction\(output, 0\)', 'setSafetyCommand:\s*5300', 'activeVehicle\.sendCommand\(1, setSafetyCommand', 'activeVehicle\.sensorsEnabledBits', 'drag\.target:\s*safetyHandle', '255,', '65280,')) {
         if (-not (Select-String -Path $serviceServoQml -Pattern $servoMarker -Quiet)) {
             throw "Servo/Safety service marker not found: $servoMarker"
         }
