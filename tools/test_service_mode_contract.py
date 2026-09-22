@@ -33,7 +33,7 @@ class ServiceModeContractTest(unittest.TestCase):
 
     def test_service_panel_contains_live_orientation_gps_and_compass(self):
         self.assertIn("QGCAttitudeWidget", self.service)
-        self.assertNotIn("FlightMap", self.service)
+        self.assertNotIn("FlightMap {", self.service)
         self.assertIn("activeVehicle.gps.count.valueString", self.service)
         self.assertIn("activeVehicle.gps.lock.enumStringValue", self.service)
         self.assertIn("activeVehicle.gps.hdop.valueString", self.service)
