@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$QgcRoot,
     [Parameter(Mandatory=$true)][string]$OverlayRoot,
-    [string]$ExpectedCommit = "e0816c957602789200ae5ba0af45217f0f2f1db4"
+    [string]$ExpectedCommit = "e0816c957602789200ae5ba0af45217f0f2f1db4",
+    [string]$TranslationRef = "master"
 )
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
@@ -57,12 +58,27 @@ try {
     & python $dependencyVerifier --source-root $QgcRoot
     if ($LASTEXITCODE -ne 0) { throw "verify_qgc_dependency_pins.py failed" }
 
-    Write-Host "=== Generate complete Ukrainian translations ==="
-    $translationGenerator = Join-Path $OverlayRoot "tools\generate_ukrainian_translations.py"
-    $translationCache = Join-Path $OverlayRoot "translation-cache\en_uk.json"
-    $translationOverrides = Join-Path $OverlayRoot "translations\uk_manual_overrides.json"
-    & python $translationGenerator --source-root $QgcRoot --cache $translationCache --overrides $translationOverrides
-    if ($LASTEXITCODE -ne 0) { throw "generate_ukrainian_translations.py failed" }
+    Write-Host "=== Use official upstream Ukrainian translations ==="
+    $translationDir = Join-Path $QgcRoot "translations"
+    $ukSource = Join-Path $translationDir "qgc_source_uk_UA.ts"
+    $ukJson = Join-Path $translationDir "qgc_json_uk_UA.ts"
+    $upstreamTranslationBase = "https://raw.githubusercontent.com/mavlink/qgroundcontrol/$TranslationRef/translations"
+
+    Invoke-WebRequest -Uri "$upstreamTranslationBase/qgc_source_uk_UA.ts" -OutFile $ukSource
+    Invoke-WebRequest -Uri "$upstreamTranslationBase/qgc_json_uk_UA.ts" -OutFile $ukJson
+
+    foreach ($translationFile in @($ukSource, $ukJson)) {
+        if (-not (Test-Path $translationFile -PathType Leaf)) {
+            throw "Official Ukrainian translation missing: $translationFile"
+        }
+        if ((Get-Item $translationFile).Length -lt 1000) {
+            throw "Official Ukrainian translation download looks invalid: $translationFile"
+        }
+        if (-not (Select-String -Path $translationFile -Pattern '<TS version="2\.1" language="uk"' -Quiet)) {
+            throw "Unexpected Ukrainian translation format: $translationFile"
+        }
+    }
+    Write-Host "Using mavlink/qgroundcontrol@$TranslationRef Ukrainian translations."
 
     Write-Host "=== Apply scoped MAVLink Status UI customization ==="
     $customizer = Join-Path $OverlayRoot "tools\apply_qgc_ui_customizations.py"
@@ -109,9 +125,6 @@ try {
     $statusHandler = Join-Path $QgcRoot "src\MAVLink\StatusTextHandler.cc"
     $screenToolsController = Join-Path $QgcRoot "src\QmlControls\ScreenToolsController.cc"
     $mainSource = Join-Path $QgcRoot "src\main.cc"
-    $ukSource = Join-Path $QgcRoot "translations\qgc_source_uk_UA.ts"
-    $ukJson = Join-Path $QgcRoot "translations\qgc_json_uk_UA.ts"
-
     if (-not (Select-String -Path $statusHandler -Pattern 'QStringDecoder utf8Decoder' -Quiet)) {
         throw "MAVLink STATUSTEXT UTF-8 marker not found"
     }
@@ -135,8 +148,8 @@ try {
         throw "Centered tool menu marker not found"
     }
     foreach ($translationFile in @($ukSource, $ukJson)) {
-        if (Select-String -Path $translationFile -Pattern 'type="unfinished"' -Quiet) {
-            throw "Unfinished Ukrainian translations remain in $translationFile"
+        if (-not (Select-String -Path $translationFile -Pattern '<TS version="2\.1" language="uk"' -Quiet)) {
+            throw "Official Ukrainian localization marker missing from $translationFile"
         }
     }
     $serviceModeQml = Join-Path $QgcRoot "custom\qml\ServiceMode.qml"

@@ -21,6 +21,7 @@ permissions:
 
 env:
   QGC_COMMIT: e0816c957602789200ae5ba0af45217f0f2f1db4
+  QGC_TRANSLATIONS_REF: master
   QT_VERSION: 6.8.3
   GST_VERSION: 1.22.12
 jobs:
@@ -51,25 +52,10 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Test Ukrainian localization rules
-        shell: pwsh
-        working-directory: ${{ github.workspace }}\tools
-        run: python -m unittest -v test_localization_rules.py
-
       - name: Test service mode contract
         shell: pwsh
         working-directory: ${{ github.workspace }}\tools
         run: python -m unittest -v test_service_mode_contract.py
-
-      - name: Cache Ukrainian translations
-        uses: actions/cache@v4
-        with:
-          path: translation-cache
-          key: qgc-uk-${{ env.QGC_COMMIT }}-${{ hashFiles('tools/generate_ukrainian_translations.py', 'translations/uk_manual_overrides.json') }}
-
-      - name: Install Ukrainian translation engine
-        shell: pwsh
-        run: python -m pip install --disable-pip-version-check "argostranslate==1.11.0"
 
       - name: Prepare QGC UA source tree
         shell: pwsh
@@ -78,6 +64,7 @@ jobs:
           -QgcRoot "${{ env.QGC_DIR }}"
           -OverlayRoot "${{ github.workspace }}"
           -ExpectedCommit "${{ env.QGC_COMMIT }}"
+          -TranslationRef "${{ env.QGC_TRANSLATIONS_REF }}"
 
       - name: Install Vulkan SDK
         shell: pwsh
@@ -219,6 +206,7 @@ jobs:
           @(
               "QGC upstream tag: v5.0.8",
               "QGC upstream commit: $env:QGC_COMMIT",
+              "Ukrainian translations: mavlink/qgroundcontrol@$env:QGC_TRANSLATIONS_REF/translations",
               "Qt: $env:QT_VERSION",
               "GStreamer: $env:GST_VERSION",
               "Portable data root: bin/PortableData",
