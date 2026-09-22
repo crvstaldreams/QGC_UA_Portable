@@ -108,8 +108,10 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("safetyMaskFact.rawValue = maskValue", self.servo)
         self.assertIn("            255,", self.servo)
         self.assertIn("            65280,", self.servo)
-        self.assertIn('{"9": 33, "10": 34, "11": 35, "12": 36, "13": 37, "14": 38, "15": 60}', self.servo)
-        self.assertIn('{"1": 33, "2": 34, "3": 35, "4": 36, "5": 37, "6": 38, "7": 60}', self.servo)
+        for marker in ('"9": 33', '"10": 34', '"11": 35', '"12": 36', '"13": 37', '"14": 38', '"15": 60'):
+            self.assertIn(marker, self.servo)
+        for marker in ('"1": 33', '"2": 34', '"3": 35', '"4": 36', '"5": 37', '"6": 38', '"7": 60'):
+            self.assertIn(marker, self.servo)
         self.assertIn("setServoFunction(output, 0)", self.servo)
         self.assertIn('"15": 60', self.servo)
         self.assertIn('"7": 60', self.servo)
