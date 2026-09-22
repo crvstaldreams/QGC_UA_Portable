@@ -55,6 +55,10 @@ Rectangle {
         currentPage = "summary"
     }
 
+    function showMap() {
+        currentPage = "map"
+    }
+
     function showFirmware() {
         currentPage = "firmware"
     }
@@ -97,6 +101,9 @@ Rectangle {
     }
 
     function currentPanelSource() {
+        if (currentPage === "map") {
+            return "qrc:/qml/QGroundControl/Custom/ServiceMap.qml"
+        }
         if (currentPage === "firmware") {
             return "qrc:/qml/QGroundControl/VehicleSetup/FirmwareUpgrade.qml"
         }
@@ -185,6 +192,13 @@ Rectangle {
 
                 QGCButton {
                     Layout.fillWidth: true
+                    text: "Карта"
+                    checked: currentPage === "map"
+                    onClicked: showMap()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
                     text: "Прошивка"
                     checked: currentPage === "firmware"
                     onClicked: showFirmware()
@@ -242,7 +256,7 @@ Rectangle {
 
                 QGCLabel {
                     Layout.fillWidth: true
-                    text: "Сервісний режим: огляд, прошивка, параметри, MP Params, датчики, Servo/Saf.Mask, MAVLink Status та перезавантаження борту."
+                    text: "Сервісний режим: огляд, карта, прошивка, параметри, MP Params, датчики, Servo/Saf.Mask, MAVLink Status та перезавантаження борту."
                     wrapMode: Text.WordWrap
                     font.pointSize: ScreenTools.smallFontPointSize
                     color: qgcPal.text
@@ -289,8 +303,9 @@ Rectangle {
         Rectangle {
             id: serviceInfoPanel
 
-            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 32
+            Layout.preferredWidth: currentPage === "map" ? 0 : ScreenTools.defaultFontPixelWidth * 32
             Layout.fillHeight: true
+            visible: currentPage !== "map"
             radius: ScreenTools.defaultFontPixelWidth / 2
             color: qgcPal.windowShade
 

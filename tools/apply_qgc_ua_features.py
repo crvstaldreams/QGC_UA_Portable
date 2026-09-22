@@ -641,10 +641,35 @@ def patch_service_mode_menu(root: Path) -> Path:
 '''
     vehicle_with_service = vehicle_function + '''
     function showServiceMode() {
+        criticalVehicleMessagePopup.close()
+        criticalVehicleMessagePopup.additionalCriticalMessagesReceived = false
         showTool(qsTr("Спрощ. режим для сервісу"), "qrc:/qml/QGroundControl/Custom/ServiceMode.qml", "/qmlimages/Gears.svg")
     }
 '''
     text = replace_once(text, vehicle_function, vehicle_with_service, "service mode show function")
+
+    critical_message_function = '''    function showCriticalVehicleMessage(message) {
+        closeIndicatorDrawer()
+'''
+    critical_message_with_service_guard = '''    function serviceModeVisible() {
+        return toolDrawer.visible &&
+               toolDrawer.toolSource.toString() === "qrc:/qml/QGroundControl/Custom/ServiceMode.qml"
+    }
+
+    function showCriticalVehicleMessage(message) {
+        if (serviceModeVisible()) {
+            criticalVehicleMessagePopup.close()
+            criticalVehicleMessagePopup.additionalCriticalMessagesReceived = false
+            return
+        }
+        closeIndicatorDrawer()
+'''
+    text = replace_once(
+        text,
+        critical_message_function,
+        critical_message_with_service_guard,
+        "suppress critical vehicle popup in service mode",
+    )
 
     setup_block = '''                        SubMenuButton {
                             id:                 setupButton

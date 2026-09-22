@@ -21,6 +21,19 @@ Item {
     property int presetRevision: 0
     property string activePreset: ""
 
+    // ArduPilot reports hardware safety through SYS_STATUS motor outputs.
+    // MAV_SYS_STATUS_SENSOR_MOTOR_OUTPUTS = 0x8000.
+    readonly property int motorOutputsSensorBit: 32768
+    // MAV_CMD_DO_SET_SAFETY_SWITCH_STATE = 5300.
+    readonly property int setSafetyCommand: 5300
+    readonly property bool safetyReleased: activeVehicle
+                                           ? ((Number(activeVehicle.sensorsEnabledBits) & motorOutputsSensorBit) !== 0)
+                                           : false
+    property bool safetyCommandPending: false
+    property string safetyCommandMessage: ""
+    property int motorPercentValue: 5
+    property int motorSecondsValue: 2
+
 
     QGCPalette {
         id: qgcPal
@@ -109,11 +122,35 @@ Item {
         }
     }
 
-    function runMotorTest(motorNumber) {
-        if (!activeVehicle || !motorInterlock.checked || !motorSafetyCheck.checked) {
+    function syncSafetySlider() {
+        if (!safetyTrack || !safetyHandle) {
             return
         }
-        activeVehicle.motorTest(motorNumber, motorPercent.value, motorSeconds.value, true)
+        const maxX = Math.max(0, safetyTrack.width - safetyHandle.width)
+        safetyHandle.x = safetyReleased ? maxX : 0
+    }
+
+    function setHardwareSafetyReleased(released) {
+        if (!activeVehicle || !activeVehicle.apmFirmware || safetyCommandPending) {
+            syncSafetySlider()
+            return
+        }
+        if (!released) {
+            stopMotorTests()
+        }
+        safetyCommandPending = true
+        safetyCommandMessage = released ? "Знімаємо запобіжник…" : "Вмикаємо запобіжник…"
+        // Target the autopilot component directly. ArduPilot supports command 5300:
+        // param1 0 = SAFE (engaged), 1 = DANGEROUS (released).
+        activeVehicle.sendCommand(1, setSafetyCommand, true, released ? 1 : 0)
+        safetyCommandTimeout.restart()
+    }
+
+    function runMotorTest(motorNumber) {
+        if (!activeVehicle || !safetyReleased || !motorSafetyCheck.checked) {
+            return
+        }
+        activeVehicle.motorTest(motorNumber, motorPercentValue, motorSecondsValue, true)
     }
 
     function stopMotorTests() {
@@ -124,6 +161,46 @@ Item {
             activeVehicle.motorTest(motor, 0, 1, false)
         }
     }
+
+    Timer {
+        id: safetyCommandTimeout
+        interval: 3000
+        repeat: false
+        onTriggered: {
+            root.safetyCommandPending = false
+            root.safetyCommandMessage = ""
+            root.syncSafetySlider()
+        }
+    }
+
+    Timer {
+        id: safetyStatusSync
+        interval: 350
+        repeat: false
+        onTriggered: root.syncSafetySlider()
+    }
+
+    Connections {
+        target: root.activeVehicle
+        ignoreUnknownSignals: true
+
+        function onSensorsEnabledBitsChanged() {
+            safetyStatusSync.restart()
+        }
+
+        function onMavCommandResult(vehicleId, targetComponent, command, ackResult, failureCode) {
+            if (command !== root.setSafetyCommand) {
+                return
+            }
+            root.safetyCommandPending = false
+            root.safetyCommandMessage = ackResult === 0 ? "" : "Команду запобіжника відхилено"
+            safetyCommandTimeout.stop()
+            safetyStatusSync.restart()
+        }
+    }
+
+    Component.onCompleted: Qt.callLater(root.syncSafetySlider)
+    onSafetyReleasedChanged: safetyStatusSync.restart()
 
     ColumnLayout {
         anchors.fill: parent
@@ -370,7 +447,7 @@ Item {
 
                     QGCLabel {
                         Layout.fillWidth: true
-                        text: "УВАГА: тест запускає мотори фізично. Зніміть пропелери або надійно зафіксуйте борт."
+                        text: "УВАГА: зніміть пропелери або надійно зафіксуйте борт."
                         color: qgcPal.warningText
                         wrapMode: Text.WordWrap
                         font.bold: true
@@ -379,28 +456,84 @@ Item {
 
                     RowLayout {
                         Layout.fillWidth: true
-                        spacing: ScreenTools.defaultFontPixelWidth * 0.7
+                        spacing: ScreenTools.defaultFontPixelWidth * 0.55
 
-                        Switch {
-                            id: motorInterlock
-                            text: "Запобіжник Motor Test"
-                            checked: false
-                            onToggled: {
-                                if (!checked) {
-                                    root.stopMotorTests()
+                        Rectangle {
+                            id: safetyTrack
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 16
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.65
+                            radius: height / 2
+                            color: qgcPal.windowShadeDark
+                            border.color: root.safetyReleased ? qgcPal.warningText : qgcPal.colorGreen
+                            border.width: 2
+                            enabled: !!root.activeVehicle && root.activeVehicle.apmFirmware && !root.safetyCommandPending
+                            opacity: enabled ? 1.0 : 0.55
+                            clip: true
+
+                            onWidthChanged: Qt.callLater(root.syncSafetySlider)
+
+                            QGCLabel {
+                                anchors.centerIn: parent
+                                text: root.safetyCommandPending
+                                      ? "..."
+                                      : (root.safetyReleased ? "← Увімкнути" : "Зняти →")
+                                color: qgcPal.text
+                                font.pointSize: ScreenTools.smallFontPointSize
+                                font.bold: true
+                            }
+
+                            Rectangle {
+                                id: safetyHandle
+                                width: ScreenTools.defaultFontPixelWidth * 3.1
+                                height: parent.height - 6
+                                y: 3
+                                x: 0
+                                radius: height / 2
+                                color: root.safetyReleased ? qgcPal.warningText : qgcPal.colorGreen
+                                border.color: qgcPal.text
+                                border.width: 1
+
+                                QGCLabel {
+                                    anchors.centerIn: parent
+                                    text: root.safetyReleased ? "◀" : "▶"
+                                    color: qgcPal.window
+                                    font.bold: true
+                                }
+                            }
+
+                            MouseArea {
+                                anchors.fill: parent
+                                enabled: safetyTrack.enabled
+                                cursorShape: Qt.OpenHandCursor
+                                drag.target: safetyHandle
+                                drag.axis: Drag.XAxis
+                                drag.minimumX: 0
+                                drag.maximumX: Math.max(0, safetyTrack.width - safetyHandle.width)
+
+                                onPressed: cursorShape = Qt.ClosedHandCursor
+                                onReleased: {
+                                    cursorShape = Qt.OpenHandCursor
+                                    const maxX = Math.max(0, safetyTrack.width - safetyHandle.width)
+                                    const desiredReleased = maxX > 0 && safetyHandle.x >= maxX * 0.5
+                                    if (desiredReleased !== root.safetyReleased) {
+                                        root.setHardwareSafetyReleased(desiredReleased)
+                                    } else {
+                                        root.syncSafetySlider()
+                                    }
                                 }
                             }
                         }
 
                         Rectangle {
-                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 18
-                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.8
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 15
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.65
                             radius: ScreenTools.defaultBorderRadius
-                            color: motorInterlock.checked ? qgcPal.colorGreen : qgcPal.warningText
+                            // Engaged safety is the safe state (green); released safety is dangerous (red).
+                            color: root.safetyReleased ? qgcPal.warningText : qgcPal.colorGreen
 
                             QGCLabel {
                                 anchors.centerIn: parent
-                                text: motorInterlock.checked ? "ЗАПОБІЖНИК ЗНЯТО" : "ЗАПОБІЖНИК УВІМКНЕНО"
+                                text: root.safetyReleased ? "ЗАПОБІЖНИК ЗНЯТО" : "ЗАПОБІЖНИК УВІМКНЕНО"
                                 color: qgcPal.window
                                 font.bold: true
                                 font.pointSize: ScreenTools.smallFontPointSize
@@ -409,43 +542,124 @@ Item {
 
                         QGCLabel {
                             Layout.fillWidth: true
-                            text: root.activeVehicle
-                                  ? (root.activeVehicle.armed ? "Борт: ARMED" : "Борт: DISARMED")
-                                  : "Борт не підключено"
-                            color: root.activeVehicle && root.activeVehicle.armed ? qgcPal.warningText : qgcPal.text
-                            font.bold: true
+                            visible: root.safetyCommandMessage.length > 0
+                            text: root.safetyCommandMessage
+                            color: qgcPal.warningText
+                            elide: Text.ElideRight
+                            font.pointSize: ScreenTools.smallFontPointSize
                         }
                     }
 
                     QGCCheckBox {
                         id: motorSafetyCheck
                         Layout.fillWidth: true
-                        text: "Безпечну зону підтверджено — дозволити Motor Test"
+                        text: "Безпечну зону підтверджено"
                     }
 
                     RowLayout {
                         Layout.fillWidth: true
+                        spacing: ScreenTools.defaultFontPixelWidth * 0.45
 
-                        QGCLabel { text: "Потужність, %:" }
+                        QGCLabel { text: "Потужність, %:"; font.pointSize: ScreenTools.smallFontPointSize }
 
-                        SpinBox {
-                            id: motorPercent
-                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7.5
-                            from: 1
-                            to: 30
-                            value: 5
-                            editable: true
+                        Rectangle {
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.45
+                            radius: ScreenTools.defaultBorderRadius
+                            color: qgcPal.windowShadeDark
+                            border.color: qgcPal.buttonBorder
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                spacing: 0
+
+                                Rectangle {
+                                    Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 1.8
+                                    Layout.fillHeight: true
+                                    color: percentMinus.containsMouse ? qgcPal.buttonHighlight : qgcPal.button
+                                    QGCLabel { anchors.centerIn: parent; text: "−"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                                    MouseArea {
+                                        id: percentMinus
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: root.motorPercentValue = Math.max(1, root.motorPercentValue - 1)
+                                    }
+                                }
+
+                                QGCLabel {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: root.motorPercentValue
+                                    font.bold: true
+                                    font.pointSize: ScreenTools.smallFontPointSize
+                                }
+
+                                Rectangle {
+                                    Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 1.8
+                                    Layout.fillHeight: true
+                                    color: percentPlus.containsMouse ? qgcPal.buttonHighlight : qgcPal.button
+                                    QGCLabel { anchors.centerIn: parent; text: "+"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                                    MouseArea {
+                                        id: percentPlus
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: root.motorPercentValue = Math.min(30, root.motorPercentValue + 1)
+                                    }
+                                }
+                            }
                         }
 
-                        QGCLabel { text: "Час, с:" }
+                        QGCLabel { text: "Час, с:"; font.pointSize: ScreenTools.smallFontPointSize }
 
-                        SpinBox {
-                            id: motorSeconds
-                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7.5
-                            from: 1
-                            to: 10
-                            value: 2
-                            editable: true
+                        Rectangle {
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 7
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.45
+                            radius: ScreenTools.defaultBorderRadius
+                            color: qgcPal.windowShadeDark
+                            border.color: qgcPal.buttonBorder
+                            border.width: 1
+
+                            RowLayout {
+                                anchors.fill: parent
+                                spacing: 0
+
+                                Rectangle {
+                                    Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 1.8
+                                    Layout.fillHeight: true
+                                    color: secondsMinus.containsMouse ? qgcPal.buttonHighlight : qgcPal.button
+                                    QGCLabel { anchors.centerIn: parent; text: "−"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                                    MouseArea {
+                                        id: secondsMinus
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: root.motorSecondsValue = Math.max(1, root.motorSecondsValue - 1)
+                                    }
+                                }
+
+                                QGCLabel {
+                                    Layout.fillWidth: true
+                                    horizontalAlignment: Text.AlignHCenter
+                                    verticalAlignment: Text.AlignVCenter
+                                    text: root.motorSecondsValue
+                                    font.bold: true
+                                    font.pointSize: ScreenTools.smallFontPointSize
+                                }
+
+                                Rectangle {
+                                    Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 1.8
+                                    Layout.fillHeight: true
+                                    color: secondsPlus.containsMouse ? qgcPal.buttonHighlight : qgcPal.button
+                                    QGCLabel { anchors.centerIn: parent; text: "+"; font.bold: true; font.pointSize: ScreenTools.smallFontPointSize }
+                                    MouseArea {
+                                        id: secondsPlus
+                                        anchors.fill: parent
+                                        hoverEnabled: true
+                                        onClicked: root.motorSecondsValue = Math.min(10, root.motorSecondsValue + 1)
+                                    }
+                                }
+                            }
                         }
 
                         Item { Layout.fillWidth: true }
@@ -471,7 +685,7 @@ Item {
 
                                 Layout.fillWidth: true
                                 text: "Motor " + (index + 1)
-                                enabled: !!root.activeVehicle && motorInterlock.checked && motorSafetyCheck.checked
+                                enabled: !!root.activeVehicle && root.safetyReleased && motorSafetyCheck.checked
                                 onClicked: root.runMotorTest(index + 1)
                             }
                         }

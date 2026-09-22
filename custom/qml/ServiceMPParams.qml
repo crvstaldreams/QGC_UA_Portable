@@ -18,7 +18,7 @@ Item {
     property var linkManager: QGroundControl.linkManager
     property var appSettings: QGroundControl.settingsManager.appSettings
     property var mpLinkConfig: null
-    property var columnFractions: [0.17, 0.11, 0.10, 0.07, 0.19, 0.31, 0.05]
+    property var columnFractions: [0.18, 0.12, 0.11, 0.07, 0.17, 0.30, 0.05]
 
     function tableColumnWidth(column, availableWidth) {
         const usableWidth = Math.max(1, availableWidth - 6)
@@ -201,6 +201,7 @@ Item {
                         anchors.margins: ScreenTools.defaultFontPixelWidth * 0.35
                         text: model.display
                         elide: Text.ElideRight
+                        horizontalAlignment: Text.AlignLeft
                         verticalAlignment: Text.AlignVCenter
                     }
                 }
@@ -417,12 +418,17 @@ Item {
                         border.width: 1
 
                         QGCLabel {
-                            anchors.centerIn: parent
-                            width: parent.width - ScreenTools.defaultFontPixelWidth * 0.3
+                            anchors.fill: parent
+                            anchors.leftMargin: ScreenTools.defaultFontPixelWidth * 0.35
+                            anchors.rightMargin: ScreenTools.defaultFontPixelWidth * 0.2
                             text: modelData
                             font.bold: true
+                            font.pointSize: ScreenTools.smallFontPointSize
                             elide: Text.ElideRight
-                            horizontalAlignment: Text.AlignHCenter
+                            wrapMode: Text.NoWrap
+                            horizontalAlignment: Text.AlignLeft
+                            verticalAlignment: Text.AlignVCenter
+                            clip: true
                         }
                     }
                 }
@@ -454,6 +460,7 @@ Item {
                         visible: column === 1
                         anchors.fill: parent
                         anchors.margins: 1
+                        horizontalAlignment: Text.AlignLeft
                         text: model.pendingValue
                         enabled: !model.readOnly
                         onEditingFinished: {

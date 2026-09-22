@@ -9,6 +9,8 @@ PARAM_EDITOR = ROOT / "custom" / "qml" / "ServiceParameterEditor.qml"
 SERVO_PAGE = ROOT / "custom" / "qml" / "ServiceServoSafety.qml"
 MAVLINK_PAGE = ROOT / "custom" / "qml" / "ServiceMavlinkStatus.qml"
 MP_PARAMS_PAGE = ROOT / "custom" / "qml" / "ServiceMPParams.qml"
+SERVICE_MAP = ROOT / "custom" / "qml" / "ServiceMap.qml"
+CUSTOM_QRC = ROOT / "custom" / "qgc_custom_resources.qrc"
 MP_PARAMS_CONTROLLER = ROOT / "custom" / "src" / "MPParamsController.cc"
 FEATURE_PATCH = ROOT / "tools" / "apply_qgc_ua_features.py"
 
@@ -21,15 +23,27 @@ class ServiceModeContractTest(unittest.TestCase):
         cls.servo = SERVO_PAGE.read_text(encoding="utf-8")
         cls.mavlink = MAVLINK_PAGE.read_text(encoding="utf-8")
         cls.mp_params = MP_PARAMS_PAGE.read_text(encoding="utf-8")
+        cls.service_map = SERVICE_MAP.read_text(encoding="utf-8")
+        cls.custom_qrc = CUSTOM_QRC.read_text(encoding="utf-8")
         cls.mp_controller = MP_PARAMS_CONTROLLER.read_text(encoding="utf-8")
         cls.feature_patch = FEATURE_PATCH.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
-        for label in ("Огляд", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
+        for label in ("Огляд", "Карта", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
             self.assertIn(f'text: "{label}"', self.service)
 
     def test_service_mode_imports_flightmap_widgets(self):
         self.assertIn("import QGroundControl.FlightMap", self.service)
+
+    def test_service_map_is_a_dedicated_page_and_expands_over_info_panel(self):
+        self.assertIn('currentPage = "map"', self.service)
+        self.assertIn('qrc:/qml/QGroundControl/Custom/ServiceMap.qml', self.service)
+        self.assertIn('visible: currentPage !== "map"', self.service)
+        self.assertIn('<file alias="ServiceMap.qml">qml/ServiceMap.qml</file>', self.custom_qrc)
+        self.assertIn("FlightMap {", self.service_map)
+        self.assertIn("VehicleMapItem", self.service_map)
+        self.assertIn("allowVehicleLocationCenter: true", self.service_map)
+        self.assertIn('mapName: "ServiceMap"', self.service_map)
 
     def test_service_panel_contains_live_orientation_gps_and_compass(self):
         self.assertIn("QGCAttitudeWidget", self.service)
@@ -76,6 +90,11 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("class MPParamsController : public FactPanelController", header)
         self.assertNotIn("class MPParamsController final", header)
 
+    def test_mp_params_table_header_and_cells_are_left_aligned(self):
+        self.assertIn("property var columnFractions: [0.18, 0.12, 0.11, 0.07, 0.17, 0.30, 0.05]", self.mp_params)
+        self.assertGreaterEqual(self.mp_params.count("horizontalAlignment: Text.AlignLeft"), 3)
+        self.assertIn("font.pointSize: ScreenTools.smallFontPointSize", self.mp_params)
+
     def test_mp_params_mission_planner_workflow(self):
         self.assertIn("ServiceMPParams.qml", self.service)
         for marker in ("Read Params", "Write Params", "Load File", "Save File", "Compare", "LinkConfiguration.TypeSerial"):
@@ -94,6 +113,12 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("item.serviceModeEmbedded = true", self.service)
         self.assertIn("property bool serviceModeEmbedded: false", self.feature_patch)
         self.assertIn("showAdvanced:   !serviceModeEmbedded", self.feature_patch)
+
+    def test_service_mode_suppresses_critical_vehicle_popup(self):
+        self.assertIn("function serviceModeVisible()", self.feature_patch)
+        self.assertIn("if (serviceModeVisible())", self.feature_patch)
+        self.assertIn("criticalVehicleMessagePopup.close()", self.feature_patch)
+        self.assertIn("criticalVehicleMessagePopup.additionalCriticalMessagesReceived = false", self.feature_patch)
 
     def test_service_mavlink_status_has_vertical_scrolling(self):
         self.assertIn("ScrollView {", self.mavlink)
@@ -127,9 +152,16 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn('"7": 60', self.servo)
         self.assertIn("applyServoProfile", self.servo)
         self.assertIn("presetRevision", self.servo)
-        self.assertIn("motorInterlock", self.servo)
+        self.assertIn("setSafetyCommand: 5300", self.servo)
+        self.assertIn("activeVehicle.sendCommand(1, setSafetyCommand", self.servo)
+        self.assertIn("activeVehicle.sensorsEnabledBits", self.servo)
+        self.assertIn("drag.target: safetyHandle", self.servo)
+        self.assertIn("root.safetyReleased && motorSafetyCheck.checked", self.servo)
+        self.assertIn("motorPercentValue", self.servo)
+        self.assertIn("motorSecondsValue", self.servo)
         self.assertIn("ЗАПОБІЖНИК ЗНЯТО", self.servo)
         self.assertIn("ЗАПОБІЖНИК УВІМКНЕНО", self.servo)
+        self.assertIn("root.safetyReleased ? qgcPal.warningText : qgcPal.colorGreen", self.servo)
 
 
 if __name__ == "__main__":
