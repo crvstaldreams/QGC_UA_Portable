@@ -607,6 +607,15 @@ def patch_centered_tool_menu(root: Path) -> Path:
 '''
     text = replace_once(text, old_close, new_close, "drawer center reset")
 
+    if "QGC UA standard indicator scrollbar" not in text:
+        scroll_marker = "            contentHeight:  indicatorDrawerLoader.height\n"
+        scroll_replacement = (
+            scroll_marker
+            + "            // QGC UA standard indicator scrollbar\n"
+            + "            ScrollBar.vertical: ScrollBar { policy: ScrollBar.AsNeeded }\n"
+        )
+        text = replace_once(text, scroll_marker, scroll_replacement, "standard indicator scrollbar")
+
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
@@ -669,6 +678,166 @@ def patch_service_mode_menu(root: Path) -> Path:
     text = replace_once(text, setup_block, service_button, "service mode menu button")
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
+
+
+def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
+    main_window = root / "src" / "UI" / "MainWindow.qml"
+    setup_view = root / "src" / "Vehicle" / "VehicleSetup" / "SetupView.qml"
+    toolbar = root / "src" / "QmlControls" / "FlyViewToolBar.qml"
+
+    # MainWindow helpers for direct setup navigation and a real link reconnect.
+    text = main_window.read_text(encoding="utf-8")
+    parameter_helper = '''    function showVehicleConfigParametersPage() {
+        showVehicleConfig()
+        toolDrawerLoader.item.showParametersPanel()
+    }
+'''
+    helper_block = parameter_helper + '''
+    function showVehicleConfigSummaryPage() {
+        showVehicleConfig()
+        toolDrawerLoader.item.showSummaryPanel()
+    }
+
+    function showVehicleConfigFirmwarePage() {
+        showVehicleConfig()
+        toolDrawerLoader.item.showFirmwarePanel()
+    }
+
+    function showVehicleComponentConfigPage(vehicleComponent) {
+        showVehicleConfig()
+        toolDrawerLoader.item.showVehicleComponentPanel(vehicleComponent)
+    }
+
+    property var _reconnectLinkConfigs: []
+
+    function restartActiveConnections() {
+        const configs = QGroundControl.linkManager.linkConfigurations
+        const pending = []
+        for (let i = 0; i < configs.count; i++) {
+            const config = configs.get(i)
+            if (config && config.link) {
+                pending.push(config)
+                config.link.disconnect()
+            }
+        }
+        _reconnectLinkConfigs = pending
+        if (_reconnectLinkConfigs.length > 0) {
+            reconnectLinksTimer.restart()
+        }
+    }
+
+    Timer {
+        id: reconnectLinksTimer
+        interval: 1000
+        repeat: false
+        onTriggered: {
+            const pending = mainWindow._reconnectLinkConfigs
+            mainWindow._reconnectLinkConfigs = []
+            for (let i = 0; i < pending.length; i++) {
+                const config = pending[i]
+                if (config && !config.link) {
+                    QGroundControl.linkManager.createConnectedLink(config)
+                }
+            }
+        }
+    }
+'''
+    text = replace_once(text, parameter_helper, helper_block, "vehicle setup quick-navigation helpers")
+    main_window.write_text(text, encoding="utf-8", newline="\n")
+
+    # Expose Firmware as a normal callable page, matching the existing Parameters helper.
+    text = setup_view.read_text(encoding="utf-8")
+    parameters_fn = '''    function showParametersPanel() {
+        if (mainWindow.allowViewSwitch()) {
+            parametersButton.checked = true
+            panelLoader.setSource("qrc:/qml/QGroundControl/VehicleSetup/SetupParameterEditor.qml")
+        }
+    }
+'''
+    firmware_fn = parameters_fn + '''
+    function showFirmwarePanel() {
+        if (mainWindow.allowViewSwitch()) {
+            firmwareButton.checked = true
+            panelLoader.setSource("qrc:/qml/QGroundControl/VehicleSetup/FirmwareUpgrade.qml")
+        }
+    }
+'''
+    text = replace_once(text, parameters_fn, firmware_fn, "Vehicle Setup firmware helper")
+    setup_view.write_text(text, encoding="utf-8", newline="\n")
+
+    # Put Vehicle Setup shortcuts ahead of the normal flight indicators. The
+    # existing QGCFlickable handles narrow windows automatically.
+    text = toolbar.read_text(encoding="utf-8")
+    stock_indicators = "        FlyViewToolBarIndicators { id: toolIndicators }\n"
+    quick_indicators = '''        Row {
+            id: quickVehicleSetupRow
+            height: toolsFlickable.height
+            spacing: ScreenTools.defaultFontPixelWidth * 0.25
+
+            property var setupComponents: _activeVehicle && _activeVehicle.autopilotPlugin
+                                                ? _activeVehicle.autopilotPlugin.vehicleComponents
+                                                : []
+
+            QGCToolBarButton {
+                height: parent.height
+                visible: !!_activeVehicle
+                icon.source: "/qmlimages/VehicleSummaryIcon.png"
+                onClicked: mainWindow.showVehicleConfigSummaryPage()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Summary")
+            }
+
+            Repeater {
+                model: quickVehicleSetupRow.setupComponents
+                QGCToolBarButton {
+                    height: quickVehicleSetupRow.height
+                    visible: modelData && modelData.setupSource.toString() !== ""
+                    icon.source: modelData ? modelData.iconResource : ""
+                    onClicked: mainWindow.showVehicleComponentConfigPage(modelData)
+                    ToolTip.visible: hovered
+                    ToolTip.text: modelData ? modelData.name : ""
+                }
+            }
+
+            QGCToolBarButton {
+                height: parent.height
+                visible: QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable &&
+                         QGroundControl.corePlugin.showAdvancedUI
+                icon.source: "/qmlimages/subMenuButtonImage.png"
+                onClicked: mainWindow.showVehicleConfigParametersPage()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Parameters")
+            }
+
+            QGCToolBarButton {
+                height: parent.height
+                visible: !ScreenTools.isMobile && QGroundControl.corePlugin.options.showFirmwareUpgrade
+                icon.source: "/qmlimages/FirmwareUpgradeIcon.png"
+                onClicked: mainWindow.showVehicleConfigFirmwarePage()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Firmware")
+            }
+
+            QGCToolBarButton {
+                height: parent.height
+                enabled: !!_activeVehicle
+                icon.source: "/InstrumentValueIcons/reload.svg"
+                onClicked: mainWindow.restartActiveConnections()
+                ToolTip.visible: hovered
+                ToolTip.text: "Перезавантажити з'єднання"
+            }
+
+            FlyViewToolBarIndicators {
+                height: quickVehicleSetupRow.height
+            }
+        }
+'''
+    text = replace_once(text, stock_indicators, quick_indicators, "Vehicle Setup quick toolbar")
+    # Keep the existing contentWidth binding valid.
+    text = text.replace("contentWidth:           toolIndicators.width", "contentWidth:           quickVehicleSetupRow.width")
+    toolbar.write_text(text, encoding="utf-8", newline="\n")
+
+    return [main_window, setup_view, toolbar]
 
 
 def patch_splash(root: Path) -> Path:
@@ -749,9 +918,9 @@ def verify_markers(paths: list[Path]) -> None:
         "ScreenToolsController.cc": 'QStringLiteral("Play")',
         "QGCApplication.cc": ':/fonts/play-regular',
         "VehicleMessageList.qml": "function refreshMessages()",
-        "MainStatusIndicator.qml": "messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60",
         "QGCTextField.qml": "control.activeFocus ? 3 : 2",
-        "MainWindow.qml": "centerOnWindow",
+        "MainWindow.qml": "QGC UA standard indicator scrollbar",
+        "FlyViewToolBar.qml": "quickVehicleSetupRow",
         "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
         "main.cc": "QGroundControl Portable",
     }
@@ -773,10 +942,10 @@ def main() -> int:
         changed.append(patch_firmware_upgrade_dedupe(root))
         changed.extend(patch_play_font(root))
         changed.append(patch_vehicle_message_list(root))
-        changed.append(patch_main_status(root))
         changed.extend(patch_contrast_controls(root))
         changed.append(patch_centered_tool_menu(root))
         changed.append(patch_service_mode_menu(root))
+        changed.extend(patch_quick_vehicle_toolbar(root))
         changed.append(patch_splash(root))
         verify_markers(changed)
     except (FeaturePatchError, OSError) as exc:

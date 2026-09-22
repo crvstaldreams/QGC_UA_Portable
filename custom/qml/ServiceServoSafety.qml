@@ -18,6 +18,9 @@ Item {
     property Fact safetyMaskFact: safetyMaskAvailable
                                   ? controller.getParameterFact(-1, "BRD_SAFETY_MASK", false)
                                   : null
+    property int presetRevision: 0
+    property string activePreset: ""
+
 
     QGCPalette {
         id: qgcPal
@@ -48,36 +51,39 @@ Item {
         return true
     }
 
-    function applyFmuPwmOutAuxProfile() {
+    function applyServoProfile(maskValue, assignments, presetName) {
         if (!safetyMaskFact) {
             return
         }
 
-        // ArduPilot SRV_Channel function ids:
-        // Motor1..Motor6 = 33..38, RCIN10 = 60.
-        safetyMaskFact.rawValue = 255
+        safetyMaskFact.rawValue = maskValue
+
+        // A preset is authoritative: every available channel not explicitly
+        // listed below becomes Disabled.
         for (let output = 1; output <= 16; output++) {
             setServoFunction(output, 0)
         }
-        for (let output = 9; output <= 14; output++) {
-            setServoFunction(output, 33 + (output - 9))
+        for (const output in assignments) {
+            setServoFunction(Number(output), assignments[output])
         }
-        setServoFunction(15, 60)
+
+        activePreset = presetName
+        presetRevision++
+        Qt.callLater(function() { root.presetRevision++ })
+    }
+
+    function applyFmuPwmOutAuxProfile() {
+        applyServoProfile(
+            255,
+            { "9": 33, "10": 34, "11": 35, "12": 36, "13": 37, "14": 38, "15": 60 },
+            "FMU PWM OUT (AUX)")
     }
 
     function applyIoPwmOutMainProfile() {
-        if (!safetyMaskFact) {
-            return
-        }
-
-        safetyMaskFact.rawValue = 65280
-        for (let output = 1; output <= 16; output++) {
-            setServoFunction(output, 0)
-        }
-        for (let output = 1; output <= 6; output++) {
-            setServoFunction(output, 33 + (output - 1))
-        }
-        setServoFunction(7, 60)
+        applyServoProfile(
+            65280,
+            { "1": 33, "2": 34, "3": 35, "4": 36, "5": 37, "6": 38, "7": 60 },
+            "I/O PWM OUT (MAIN)")
     }
 
     function maskBitEnabled(outputIndex) {
@@ -104,7 +110,7 @@ Item {
     }
 
     function runMotorTest(motorNumber) {
-        if (!activeVehicle || !motorSafetyCheck.checked) {
+        if (!activeVehicle || !motorInterlock.checked || !motorSafetyCheck.checked) {
             return
         }
         activeVehicle.motorTest(motorNumber, motorPercent.value, motorSeconds.value, true)
@@ -154,6 +160,13 @@ Item {
                     onClicked: root.applyIoPwmOutMainProfile()
                     ToolTip.visible: hovered
                     ToolTip.text: "BRD_SAFETY_MASK=65280; OUT1-6=Motor1-6; OUT7=RCIN10; інші OUT=Disabled"
+                }
+
+                QGCLabel {
+                    visible: root.activePreset.length > 0
+                    text: "Застосовано: " + root.activePreset
+                    color: qgcPal.buttonHighlight
+                    font.bold: true
                 }
 
                 QGCLabel {
@@ -230,9 +243,12 @@ Item {
                                 radius: ScreenTools.defaultFontPixelWidth / 5
 
                                 property string parameterName: root.servoParamName(index + 1)
-                                property Fact functionFact: visible
-                                                            ? controller.getParameterFact(-1, parameterName, false)
-                                                            : null
+                                property Fact functionFact: {
+                                    const revision = root.presetRevision
+                                    return visible
+                                           ? controller.getParameterFact(-1, parameterName, false)
+                                           : null
+                                }
 
                                 RowLayout {
                                     anchors.fill: parent
@@ -361,6 +377,46 @@ Item {
                         font.pointSize: ScreenTools.smallFontPointSize
                     }
 
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: ScreenTools.defaultFontPixelWidth * 0.7
+
+                        Switch {
+                            id: motorInterlock
+                            text: "Запобіжник Motor Test"
+                            checked: false
+                            onToggled: {
+                                if (!checked) {
+                                    root.stopMotorTests()
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 18
+                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 1.8
+                            radius: ScreenTools.defaultBorderRadius
+                            color: motorInterlock.checked ? qgcPal.colorGreen : qgcPal.warningText
+
+                            QGCLabel {
+                                anchors.centerIn: parent
+                                text: motorInterlock.checked ? "ЗАПОБІЖНИК ЗНЯТО" : "ЗАПОБІЖНИК УВІМКНЕНО"
+                                color: qgcPal.window
+                                font.bold: true
+                                font.pointSize: ScreenTools.smallFontPointSize
+                            }
+                        }
+
+                        QGCLabel {
+                            Layout.fillWidth: true
+                            text: root.activeVehicle
+                                  ? (root.activeVehicle.armed ? "Борт: ARMED" : "Борт: DISARMED")
+                                  : "Борт не підключено"
+                            color: root.activeVehicle && root.activeVehicle.armed ? qgcPal.warningText : qgcPal.text
+                            font.bold: true
+                        }
+                    }
+
                     QGCCheckBox {
                         id: motorSafetyCheck
                         Layout.fillWidth: true
@@ -415,7 +471,7 @@ Item {
 
                                 Layout.fillWidth: true
                                 text: "Motor " + (index + 1)
-                                enabled: !!root.activeVehicle && motorSafetyCheck.checked
+                                enabled: !!root.activeVehicle && motorInterlock.checked && motorSafetyCheck.checked
                                 onClicked: root.runMotorTest(index + 1)
                             }
                         }

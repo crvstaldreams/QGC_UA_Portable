@@ -79,9 +79,7 @@ Rectangle {
     }
 
     function reconnectVehicle() {
-        if (activeVehicle) {
-            activeVehicle.rebootVehicle()
-        }
+        mainWindow.restartActiveConnections()
     }
 
     // VehicleSummary.qml calls this when a summary card is clicked. In service
@@ -288,8 +286,8 @@ Rectangle {
             color: qgcPal.windowShade
 
             readonly property real instrumentSize: Math.min(
-                                                       ScreenTools.defaultFontPixelHeight * 7.5,
-                                                       width * 0.72)
+                                                       ScreenTools.defaultFontPixelHeight * 10.5,
+                                                       width * 0.82)
 
             ColumnLayout {
                 anchors.fill: parent

@@ -44,6 +44,7 @@ class ServiceModeContractTest(unittest.TestCase):
     def test_service_sidebar_instruments_are_equal_and_centered(self):
         self.assertIn("Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 32", self.service)
         self.assertIn("readonly property real instrumentSize", self.service)
+        self.assertIn("ScreenTools.defaultFontPixelHeight * 10.5", self.service)
         self.assertEqual(self.service.count("Layout.preferredWidth: serviceInfoPanel.instrumentSize"), 2)
         self.assertEqual(self.service.count("Layout.preferredHeight: serviceInfoPanel.instrumentSize"), 2)
         self.assertGreaterEqual(self.service.count("Layout.alignment: Qt.AlignHCenter"), 2)
@@ -54,7 +55,7 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("components.length", self.service)
         self.assertIn("components[i]", self.service)
         self.assertIn('text: "Реконнект"', self.service)
-        self.assertIn("activeVehicle.rebootVehicle()", self.service)
+        self.assertIn("mainWindow.restartActiveConnections()", self.service)
 
     def test_parameter_view_has_service_tree_without_explanation_panel(self):
         self.assertIn("Дерево параметрів", self.params)
@@ -74,8 +75,10 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("ServiceMPParams.qml", self.service)
         for marker in ("Read Params", "Write Params", "Load File", "Save File", "Compare", "LinkConfiguration.TypeSerial"):
             self.assertIn(marker, self.mp_params)
-        for marker in ("Mission Planner Params (*.param *.parm)", "MP Parameter Tree", "controller.treeModel", "controller.compareModel", "uiScale: 0.72"):
+        for marker in ("Mission Planner Params (*.param *.parm)", "controller.compareModel", "uiScale: 0.82", "columnFractions"):
             self.assertIn(marker, self.mp_params)
+        self.assertNotIn("MP Parameter Tree", self.mp_params)
+        self.assertNotIn("TreeView {", self.mp_params)
         self.assertIn('currentPage = "mpParams"', self.service)
         self.assertIn('qrc:/qml/QGroundControl/Custom/ServiceMPParams.qml', self.service)
         self.assertNotIn("ServiceMPParamsWindow.qml", self.service)
@@ -90,7 +93,7 @@ class ServiceModeContractTest(unittest.TestCase):
     def test_service_mavlink_status_refreshes_every_five_seconds(self):
         self.assertIn("ServiceMavlinkStatus.qml", self.service)
         self.assertIn("interval: 5000", self.mavlink)
-        self.assertIn("messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60", self.mavlink)
+        self.assertIn("messageFontPointSize: ScreenTools.defaultFontPointSize", self.mavlink)
         self.assertIn("refreshMessages()", self.mavlink)
 
     def test_servo_safety_page_is_registered_in_service_mode(self):
@@ -106,8 +109,13 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("safetyMaskFact.rawValue = 65280", self.servo)
         self.assertIn("setServoFunction(output, 33 + (output - 9))", self.servo)
         self.assertIn("setServoFunction(output, 33 + (output - 1))", self.servo)
-        self.assertIn("setServoFunction(15, 60)", self.servo)
-        self.assertIn("setServoFunction(7, 60)", self.servo)
+        self.assertIn('"15": 60', self.servo)
+        self.assertIn('"7": 60', self.servo)
+        self.assertIn("applyServoProfile", self.servo)
+        self.assertIn("presetRevision", self.servo)
+        self.assertIn("motorInterlock", self.servo)
+        self.assertIn("ЗАПОБІЖНИК ЗНЯТО", self.servo)
+        self.assertIn("ЗАПОБІЖНИК УВІМКНЕНО", self.servo)
 
 
 if __name__ == "__main__":

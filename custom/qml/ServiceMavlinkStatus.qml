@@ -74,7 +74,7 @@ Rectangle {
                     id: vehicleMessageList
                     width: mavlinkStatusScroll.availableWidth
                     activeVehicle: root.activeVehicle
-                    messageFontPointSize: ScreenTools.defaultFontPointSize * 1.60
+                    messageFontPointSize: ScreenTools.defaultFontPointSize
                     messagePanelWidth: mavlinkStatusScroll.availableWidth
                     messagePanelMinHeight: mavlinkStatusScroll.availableHeight
                 }

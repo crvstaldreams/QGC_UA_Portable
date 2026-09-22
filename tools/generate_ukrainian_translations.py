@@ -12,6 +12,8 @@ MANUAL_TRANSLATIONS = {
     "System": "Система",
     "Language": "Мова",
     "Vehicle Configuration": "Налаштування борту",
+    "Navigation": "Навігація",
+    "Reload connection": "Перезавантажити з'єднання",
     "Application Settings": "Налаштування застосунку",
     "Plan Flight": "Планування польоту",
     "Analyze Tools": "Інструменти аналізу",
@@ -361,6 +363,22 @@ def postprocess_translation(
         result = re.sub(r"\bдомівк(?:а|и|у|ою|ці)\b", "HOME", result, flags=re.IGNORECASE)
         result = re.sub(r"\bдім\b", "HOME", result, flags=re.IGNORECASE)
 
+    if re.search(r"\bvehicles?\b", source, flags=re.IGNORECASE):
+        vehicle_replacements = (
+            (r"\bтранспортного засобу\b", "борту"),
+            (r"\bтранспортному засобу\b", "борту"),
+            (r"\bтранспортним засобом\b", "бортом"),
+            (r"\bтранспортному засобі\b", "борту"),
+            (r"\bтранспортних засобів\b", "бортів"),
+            (r"\bтранспортні засоби\b", "борти"),
+            (r"\bтранспортний засіб\b", "борт"),
+            (r"\bавтомобіля\b", "борту"),
+            (r"\bавтомобілі\b", "борти"),
+            (r"\bавтомобіль\b", "борт"),
+        )
+        for pattern, replacement in vehicle_replacements:
+            result = re.sub(pattern, replacement, result, flags=re.IGNORECASE)
+
     return result
 
 
@@ -373,6 +391,13 @@ def audit_translation(
     """Fail the build when known dangerous terminology regressions reappear."""
     context_blob = _context_blob(context_name, locations)
     lowered = translated.lower()
+
+    if re.search(r"\bvehicles?\b", source, flags=re.IGNORECASE):
+        if "транспорт" in lowered or "автомобіл" in lowered:
+            raise ValueError(
+                f"UAV terminology regression: {source!r} -> {translated!r} "
+                f"({context_name}, {locations})"
+            )
 
     if _frame_means_airframe(source, context_name, locations):
         if "рам" not in lowered:

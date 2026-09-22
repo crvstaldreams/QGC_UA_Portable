@@ -13,20 +13,17 @@ Item {
     id: root
     clip: true
 
-    property real uiScale: 0.72
+    property real uiScale: 0.82
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property var linkManager: QGroundControl.linkManager
     property var appSettings: QGroundControl.settingsManager.appSettings
     property var mpLinkConfig: null
-    property var tableWidths: [
-        ScreenTools.defaultFontPixelWidth * 20,
-        ScreenTools.defaultFontPixelWidth * 14,
-        ScreenTools.defaultFontPixelWidth * 12,
-        ScreenTools.defaultFontPixelWidth * 8,
-        ScreenTools.defaultFontPixelWidth * 24,
-        ScreenTools.defaultFontPixelWidth * 40,
-        ScreenTools.defaultFontPixelWidth * 5
-    ]
+    property var columnFractions: [0.17, 0.11, 0.10, 0.07, 0.19, 0.31, 0.05]
+
+    function tableColumnWidth(column, availableWidth) {
+        const usableWidth = Math.max(1, availableWidth - 6)
+        return Math.max(1, usableWidth * columnFractions[column])
+    }
 
     QGCPalette {
         id: qgcPal
@@ -374,151 +371,113 @@ Item {
             value: controller.loadProgress
         }
 
-        RowLayout {
+        ColumnLayout {
+            id: paramsArea
             Layout.fillWidth: true
             Layout.fillHeight: true
-            spacing: ScreenTools.defaultFontPixelWidth * 0.6
+            spacing: ScreenTools.defaultFontPixelHeight * 0.3
 
-            Rectangle {
-                Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 26
-                Layout.fillHeight: true
-                color: qgcPal.window
-                radius: ScreenTools.defaultBorderRadius
-                border.color: qgcPal.groupBorder
-                border.width: 1
+            RowLayout {
+                Layout.fillWidth: true
 
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: ScreenTools.defaultFontPixelWidth * 0.5
-                    spacing: ScreenTools.defaultFontPixelHeight * 0.3
+                QGCTextField {
+                    id: searchField
+                    Layout.fillWidth: true
+                    placeholderText: "Search parameter / description"
+                    onDisplayTextChanged: controller.searchText = displayText
+                }
 
-                    QGCLabel {
-                        Layout.fillWidth: true
-                        text: "MP Parameter Tree"
-                        font.bold: true
+                QGCButton {
+                    text: "Clear"
+                    onClicked: {
+                        searchField.text = ""
+                        controller.searchText = ""
+                        controller.selectTreeFilter("", false)
                     }
+                }
 
-                    TreeView {
-                        id: paramTree
-                        Layout.fillWidth: true
-                        Layout.fillHeight: true
-                        clip: true
-                        model: controller.treeModel
+                QGCLabel {
+                    text: "Params: " + controller.parameterCount + "   Changes: " + controller.changedCount
+                    font.bold: true
+                }
+            }
 
-                        delegate: TreeViewDelegate {
-                            implicitWidth: paramTree.width
-                            text: model.display
-                            onClicked: controller.selectTreeFilter(model.prefix, model.leaf)
+            RowLayout {
+                id: paramsHeaderRow
+                Layout.fillWidth: true
+                spacing: 1
+
+                Repeater {
+                    model: ["Parameter", "Value", "Default", "Units", "Options", "Description", "Fav"]
+                    Rectangle {
+                        Layout.preferredWidth: root.tableColumnWidth(index, paramsHeaderRow.width)
+                        Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 2
+                        color: qgcPal.windowShadeDark
+                        border.color: qgcPal.buttonBorder
+                        border.width: 1
+
+                        QGCLabel {
+                            anchors.centerIn: parent
+                            width: parent.width - ScreenTools.defaultFontPixelWidth * 0.3
+                            text: modelData
+                            font.bold: true
+                            elide: Text.ElideRight
+                            horizontalAlignment: Text.AlignHCenter
                         }
-
-                        Component.onCompleted: expand(0)
                     }
                 }
             }
 
-            ColumnLayout {
+            TableView {
+                id: paramsTable
                 Layout.fillWidth: true
                 Layout.fillHeight: true
-                spacing: ScreenTools.defaultFontPixelHeight * 0.3
+                clip: true
+                model: controller.parameters
+                columnSpacing: 1
+                rowSpacing: 1
 
-                RowLayout {
-                    Layout.fillWidth: true
+                columnWidthProvider: function(column) {
+                    return root.tableColumnWidth(column, paramsTable.width)
+                }
+
+                delegate: Rectangle {
+                    implicitWidth: root.tableColumnWidth(column, paramsTable.width)
+                    implicitHeight: ScreenTools.defaultFontPixelHeight * 2.25
+                    color: model.changed
+                           ? qgcPal.buttonHighlight
+                           : (row % 2 ? qgcPal.windowShade : qgcPal.window)
+                    border.color: qgcPal.groupBorder
+                    border.width: 1
 
                     QGCTextField {
-                        id: searchField
-                        Layout.fillWidth: true
-                        placeholderText: "Search parameter / description"
-                        onDisplayTextChanged: controller.searchText = displayText
-                    }
-
-                    QGCButton {
-                        text: "Clear"
-                        onClicked: {
-                            searchField.text = ""
-                            controller.searchText = ""
-                            controller.selectTreeFilter("", false)
+                        visible: column === 1
+                        anchors.fill: parent
+                        anchors.margins: 1
+                        text: model.pendingValue
+                        enabled: !model.readOnly
+                        onEditingFinished: {
+                            if (!controller.setPendingValue(row, text)) {
+                                text = model.pendingValue
+                            }
                         }
                     }
 
                     QGCLabel {
-                        text: "Params: " + controller.parameterCount + "   Changes: " + controller.changedCount
-                        font.bold: true
-                    }
-                }
-
-                RowLayout {
-                    Layout.fillWidth: true
-                    spacing: 1
-
-                    Repeater {
-                        model: ["Parameter", "Value", "Default", "Units", "Options", "Description", "Fav"]
-                        Rectangle {
-                            Layout.preferredWidth: root.tableWidths[index]
-                            Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 2
-                            color: qgcPal.windowShadeDark
-                            border.color: qgcPal.buttonBorder
-                            border.width: 1
-
-                            QGCLabel {
-                                anchors.centerIn: parent
-                                text: modelData
-                                font.bold: true
-                            }
-                        }
-                    }
-                }
-
-                TableView {
-                    id: paramsTable
-                    Layout.fillWidth: true
-                    Layout.fillHeight: true
-                    clip: true
-                    model: controller.parameters
-                    columnSpacing: 1
-                    rowSpacing: 1
-
-                    columnWidthProvider: function(column) {
-                        return root.tableWidths[column]
+                        visible: column !== 1 && column !== 6
+                        anchors.fill: parent
+                        anchors.margins: ScreenTools.defaultFontPixelWidth * 0.3
+                        text: model.display
+                        color: model.changed ? qgcPal.buttonHighlightText : qgcPal.text
+                        elide: Text.ElideRight
+                        verticalAlignment: Text.AlignVCenter
                     }
 
-                    delegate: Rectangle {
-                        implicitWidth: root.tableWidths[column]
-                        implicitHeight: ScreenTools.defaultFontPixelHeight * 2.25
-                        color: model.changed
-                               ? qgcPal.buttonHighlight
-                               : (row % 2 ? qgcPal.windowShade : qgcPal.window)
-                        border.color: qgcPal.groupBorder
-                        border.width: 1
-
-                        QGCTextField {
-                            visible: column === 1
-                            anchors.fill: parent
-                            anchors.margins: 1
-                            text: model.pendingValue
-                            enabled: !model.readOnly
-                            onEditingFinished: {
-                                if (!controller.setPendingValue(row, text)) {
-                                    text = model.pendingValue
-                                }
-                            }
-                        }
-
-                        QGCLabel {
-                            visible: column !== 1 && column !== 6
-                            anchors.fill: parent
-                            anchors.margins: ScreenTools.defaultFontPixelWidth * 0.3
-                            text: model.display
-                            color: model.changed ? qgcPal.buttonHighlightText : qgcPal.text
-                            elide: Text.ElideRight
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        QGCButton {
-                            visible: column === 6
-                            anchors.fill: parent
-                            text: model.favorite ? "★" : "☆"
-                            onClicked: controller.toggleFavorite(row)
-                        }
+                    QGCButton {
+                        visible: column === 6
+                        anchors.fill: parent
+                        text: model.favorite ? "★" : "☆"
+                        onClicked: controller.toggleFavorite(row)
                     }
                 }
             }

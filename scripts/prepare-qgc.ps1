@@ -104,9 +104,7 @@ try {
     Write-Host "=== Verify customization markers ==="
     $allQml = Get-ChildItem -Path $QgcRoot -Filter *.qml -Recurse -File
     $mainWindow = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'keepOpen \? Popup.CloseOnEscape' -Quiet } | Select-Object -First 1
-    $status = $allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'messageFontPointSize:\s*ScreenTools.defaultFontPointSize\s*\*\s*1\.60' -Quiet } | Select-Object -First 1
-    if (-not $mainWindow) { throw "Persistent MAVLink Status close-policy marker not found" }
-    if (-not $status) { throw "Scoped MAVLink Status messageFontPointSize marker not found" }
+    if (-not $mainWindow) { throw "Indicator drawer close-policy marker not found" }
 
     $statusHandler = Join-Path $QgcRoot "src\MAVLink\StatusTextHandler.cc"
     $screenToolsController = Join-Path $QgcRoot "src\QmlControls\ScreenToolsController.cc"
@@ -123,17 +121,8 @@ try {
     if (-not (Select-String -Path $mainSource -Pattern 'QGroundControl Portable' -Quiet)) {
         throw "Portable splash screen marker not found"
     }
-    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'autoCloseSeconds:\s*60' -Quiet } | Select-Object -First 1)) {
-        throw "MAVLink Status 60-second auto-close marker not found"
-    }
     if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'interval:\s*5000' -Quiet } | Select-Object -First 1)) {
         throw "MAVLink Status 5-second refresh marker not found"
-    }
-    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'width:\s*mainWindow\.contentItem\.width\s*\*\s*0\.65' -Quiet } | Select-Object -First 1)) {
-        throw "MAVLink Status 65-percent width marker not found"
-    }
-    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'text:\s*"Закрити"' -Quiet } | Select-Object -First 1)) {
-        throw "MAVLink Status close button marker not found"
     }
     $contrastTextField = Join-Path $QgcRoot "src\QmlControls\QGCTextField.qml"
     if (-not (Select-String -Path $contrastTextField -Pattern 'control\.activeFocus \? 3 : 2' -Quiet)) {
@@ -171,7 +160,7 @@ try {
         'text:\s*"MAVLink Status"',
         'text:\s*"MP Params"',
         'text:\s*"Реконнект"',
-        'activeVehicle\.rebootVehicle\(\)',
+        'mainWindow\.restartActiveConnections\(\)',
         'QGCAttitudeWidget',
         'activeVehicle\.gps\.count\.valueString',
         'activeVehicle\.gps\.lock\.enumStringValue',
@@ -181,6 +170,14 @@ try {
             throw "Service mode marker not found: $serviceMarker"
         }
     }
+    $flyToolbarQml = Join-Path $QgcRoot "src\QmlControls\FlyViewToolBar.qml"
+    if (-not (Select-String -Path $flyToolbarQml -Pattern 'quickVehicleSetupRow' -Quiet)) {
+        throw "Vehicle Setup quick toolbar marker not found"
+    }
+    if (-not (Select-String -Path $mainWindow.FullName -Pattern 'restartActiveConnections' -Quiet)) {
+        throw "Permanent reconnect helper marker not found"
+    }
+
     if (-not (Test-Path $serviceParamsQml -PathType Leaf)) {
         throw "ServiceParameterEditor.qml missing from custom overlay"
     }
@@ -193,10 +190,13 @@ try {
     if (-not (Test-Path $serviceMPParamsQml -PathType Leaf)) {
         throw "ServiceMPParams.qml missing from custom overlay"
     }
-    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'controller\.treeModel', 'uiScale:\s*0\.72')) {
+    foreach ($mpMarker in @('Read Params', 'Write Params', 'Mission Planner Params', 'LinkConfiguration\.TypeSerial', 'controller\.compareModel', 'uiScale:\s*0\.82', 'columnFractions')) {
         if (-not (Select-String -Path $serviceMPParamsQml -Pattern $mpMarker -Quiet)) {
             throw "MP Params service marker not found: $mpMarker"
         }
+    }
+    if (Select-String -Path $serviceMPParamsQml -Pattern 'MP Parameter Tree|TreeView\s*\{' -Quiet) {
+        throw "MP Params tree UI must be removed"
     }
     if (-not (Test-Path $mpParamsController -PathType Leaf)) {
         throw "MPParamsController.cc missing from custom overlay"
@@ -210,7 +210,7 @@ try {
     if (-not (Test-Path $serviceMavlinkQml -PathType Leaf)) {
         throw "ServiceMavlinkStatus.qml missing from custom overlay"
     }
-    foreach ($mavMarker in @('interval:\s*5000', 'messageFontPointSize:.*1\.60', 'refreshMessages\(\)', 'ScrollBar\.vertical\.policy:\s*ScrollBar\.AlwaysOn')) {
+    foreach ($mavMarker in @('interval:\s*5000', 'messageFontPointSize:\s*ScreenTools\.defaultFontPointSize', 'refreshMessages\(\)', 'ScrollBar\.vertical\.policy:\s*ScrollBar\.AlwaysOn')) {
         if (-not (Select-String -Path $serviceMavlinkQml -Pattern $mavMarker -Quiet)) {
             throw "Service MAVLink Status marker not found: $mavMarker"
         }

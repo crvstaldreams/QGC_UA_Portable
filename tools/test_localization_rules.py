@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import unittest
 
-from generate_ukrainian_translations import contextual_override, find_manual_override
+from generate_ukrainian_translations import contextual_override, find_manual_override, postprocess_translation
 
 
 class UkrainianLocalizationRulesTest(unittest.TestCase):
@@ -76,6 +76,20 @@ class UkrainianLocalizationRulesTest(unittest.TestCase):
         self.assertEqual(find_manual_override("Frame", "VideoSettings", overrides), "Кадр відео")
         self.assertIsNone(find_manual_override("Frame", "APMAirframeComponent", overrides))
         self.assertEqual(find_manual_override("Save", "AnyContext", overrides), "Зберегти вручну")
+
+    def test_navigation_label_is_correct(self):
+        self.assertEqual(contextual_override("Navigation", "AnyUi", []), "Навігація")
+
+    def test_vehicle_terminology_is_uav_specific(self):
+        self.assertEqual(
+            postprocess_translation(
+                "Vehicle settings",
+                "Налаштування транспортного засобу",
+                "SetupView",
+                ["../src/Vehicle/VehicleSetup/SetupView.qml"],
+            ),
+            "Налаштування борту",
+        )
 
     def test_terrain_frame_is_coordinate_frame(self):
         self.assertEqual(
