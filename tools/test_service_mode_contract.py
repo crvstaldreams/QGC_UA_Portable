@@ -28,6 +28,9 @@ class ServiceModeContractTest(unittest.TestCase):
         for label in ("Огляд", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
             self.assertIn(f'text: "{label}"', self.service)
 
+    def test_service_mode_imports_flightmap_widgets(self):
+        self.assertIn("import QGroundControl.FlightMap", self.service)
+
     def test_service_panel_contains_live_orientation_gps_and_compass(self):
         self.assertIn("QGCAttitudeWidget", self.service)
         self.assertNotIn("FlightMap", self.service)

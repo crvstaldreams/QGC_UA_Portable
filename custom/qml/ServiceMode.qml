@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Layouts
 import QGroundControl
 import QGroundControl.Controls
+import QGroundControl.FlightMap
 import QGroundControl.Palette
 import QGroundControl.ScreenTools
 
