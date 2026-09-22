@@ -840,6 +840,32 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
     return [main_window, setup_view, toolbar]
 
 
+
+def patch_service_firmware_page(root: Path) -> Path:
+    path = root / "src" / "Vehicle" / "VehicleSetup" / "FirmwareUpgrade.qml"
+    text = path.read_text(encoding="utf-8")
+
+    old = '''SetupPage {
+    id:             firmwarePage
+    pageComponent:  firmwarePageComponent
+    pageName:       qsTr("Firmware")
+    showAdvanced:   globals.activeVehicle && globals.activeVehicle.apmFirmware
+'''
+    new = '''SetupPage {
+    id:             firmwarePage
+    pageComponent:  firmwarePageComponent
+    pageName:       qsTr("Firmware")
+
+    // Service Mode already exposes the required maintenance actions directly.
+    // Keep the standard Firmware page unchanged elsewhere, but suppress the
+    // Advanced options control/popup when the page is embedded there.
+    property bool serviceModeEmbedded: false
+    showAdvanced:   !serviceModeEmbedded && globals.activeVehicle && globals.activeVehicle.apmFirmware
+'''
+    text = replace_once(text, old, new, "service-mode Firmware advanced-options suppression")
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
 def patch_splash(root: Path) -> Path:
     path = root / "src" / "main.cc"
     text = path.read_text(encoding="utf-8")
@@ -922,6 +948,7 @@ def verify_markers(paths: list[Path]) -> None:
         "MainWindow.qml": "QGC UA standard indicator scrollbar",
         "FlyViewToolBar.qml": "quickVehicleSetupRow",
         "FirmwareUpgradeController.cc": "Ignoring duplicate flashable USB interface",
+        "FirmwareUpgrade.qml": "serviceModeEmbedded",
         "main.cc": "QGroundControl Portable",
     }
     for path in paths:
@@ -946,6 +973,7 @@ def main() -> int:
         changed.append(patch_centered_tool_menu(root))
         changed.append(patch_service_mode_menu(root))
         changed.extend(patch_quick_vehicle_toolbar(root))
+        changed.append(patch_service_firmware_page(root))
         changed.append(patch_splash(root))
         verify_markers(changed)
     except (FeaturePatchError, OSError) as exc:

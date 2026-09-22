@@ -10,6 +10,7 @@ SERVO_PAGE = ROOT / "custom" / "qml" / "ServiceServoSafety.qml"
 MAVLINK_PAGE = ROOT / "custom" / "qml" / "ServiceMavlinkStatus.qml"
 MP_PARAMS_PAGE = ROOT / "custom" / "qml" / "ServiceMPParams.qml"
 MP_PARAMS_CONTROLLER = ROOT / "custom" / "src" / "MPParamsController.cc"
+FEATURE_PATCH = ROOT / "tools" / "apply_qgc_ua_features.py"
 
 
 class ServiceModeContractTest(unittest.TestCase):
@@ -21,6 +22,7 @@ class ServiceModeContractTest(unittest.TestCase):
         cls.mavlink = MAVLINK_PAGE.read_text(encoding="utf-8")
         cls.mp_params = MP_PARAMS_PAGE.read_text(encoding="utf-8")
         cls.mp_controller = MP_PARAMS_CONTROLLER.read_text(encoding="utf-8")
+        cls.feature_patch = FEATURE_PATCH.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
         for label in ("Огляд", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
@@ -84,6 +86,11 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertNotIn("ServiceMPParamsWindow.qml", self.service)
         for marker in ("_parseMpFile", "separator(QStringLiteral(\"[,\\\\s]+\"))", "stream << name << ',' << value", "writePending", "_rebuildTree"):
             self.assertIn(marker, self.mp_controller)
+
+    def test_service_firmware_suppresses_advanced_popup_only_when_embedded(self):
+        self.assertIn("item.serviceModeEmbedded = true", self.service)
+        self.assertIn("property bool serviceModeEmbedded: false", self.feature_patch)
+        self.assertIn("showAdvanced:   !serviceModeEmbedded", self.feature_patch)
 
     def test_service_mavlink_status_has_vertical_scrolling(self):
         self.assertIn("ScrollView {", self.mavlink)

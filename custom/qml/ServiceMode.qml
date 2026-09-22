@@ -264,6 +264,14 @@ Rectangle {
                 // Existing setup pages use this context property when they need
                 // to know which autopilot component they belong to.
                 property var vehicleComponent: currentPage === "sensors" ? sensorComponent : null
+
+                // FirmwareUpgrade.qml exposes this opt-in switch in the UA fork.
+                // Suppress its Advanced UI only when embedded in Service Mode.
+                onLoaded: {
+                    if (currentPage === "firmware" && item && item.serviceModeEmbedded !== undefined) {
+                        item.serviceModeEmbedded = true
+                    }
+                }
             }
 
             QGCLabel {
