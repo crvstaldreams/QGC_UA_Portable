@@ -61,7 +61,7 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("Крен %1°   Тангаж %2°", self.service)
 
     def test_service_sidebar_instruments_are_equal_and_centered(self):
-        self.assertIn("Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 32", self.service)
+        self.assertIn('Layout.preferredWidth: currentPage === "map" ? 0 : ScreenTools.defaultFontPixelWidth * 32', self.service)
         self.assertIn("readonly property real instrumentSize", self.service)
         self.assertIn("ScreenTools.defaultFontPixelHeight * 10.5", self.service)
         self.assertEqual(self.service.count("Layout.preferredWidth: serviceInfoPanel.instrumentSize"), 2)
