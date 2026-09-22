@@ -219,7 +219,7 @@ try {
     if (-not (Test-Path $serviceServoQml -PathType Leaf)) {
         throw "ServiceServoSafety.qml missing from custom overlay"
     }
-    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'rawValue = 255', 'rawValue = 65280')) {
+    foreach ($servoMarker in @('SERVO', 'BRD_SAFETY_MASK', 'motorTest\(', 'FMU PWM OUT \(AUX\)', 'I/O PWM OUT \(MAIN\)', 'applyServoProfile', 'setServoFunction\(output, 0\)', 'motorInterlock', '255,', '65280,')) {
         if (-not (Select-String -Path $serviceServoQml -Pattern $servoMarker -Quiet)) {
             throw "Servo/Safety service marker not found: $servoMarker"
         }
