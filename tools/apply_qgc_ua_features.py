@@ -734,6 +734,7 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
     }
 
     property var _reconnectLinkConfigs: []
+    property int _reconnectAttempts: 0
 
     function restartActiveConnections() {
         const configs = QGroundControl.linkManager.linkConfigurations
@@ -746,23 +747,32 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
             }
         }
         _reconnectLinkConfigs = pending
-        if (_reconnectLinkConfigs.length > 0) {
+        _reconnectAttempts = 0
+        if (pending.length > 0) {
             reconnectLinksTimer.restart()
         }
     }
 
     Timer {
         id: reconnectLinksTimer
-        interval: 1000
+        interval: 500
         repeat: false
         onTriggered: {
+            const waiting = []
             const pending = mainWindow._reconnectLinkConfigs
-            mainWindow._reconnectLinkConfigs = []
             for (let i = 0; i < pending.length; i++) {
                 const config = pending[i]
-                if (config && !config.link) {
+                if (!config) continue
+                if (config.link) {
+                    waiting.push(config)
+                } else {
                     QGroundControl.linkManager.createConnectedLink(config)
                 }
+            }
+            mainWindow._reconnectAttempts++
+            mainWindow._reconnectLinkConfigs = waiting
+            if (waiting.length > 0 && mainWindow._reconnectAttempts < 12) {
+                reconnectLinksTimer.restart()
             }
         }
     }
