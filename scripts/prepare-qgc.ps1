@@ -159,7 +159,7 @@ try {
     $serviceMPParamsQml = Join-Path $QgcRoot "custom\qml\ServiceMPParams.qml"
     $serviceMapQml = Join-Path $QgcRoot "custom\qml\ServiceMap.qml"
     $mpParamsController = Join-Path $QgcRoot "custom\src\MPParamsController.cc"
-    if (-not (Select-String -Path $mainWindow.FullName -Pattern 'Спрощ\. режим для сервісу' -Quiet)) {
+    if (-not (Select-String -Path $mainWindow.FullName -Pattern 'ARGN Service Mode' -Quiet)) {
         throw "Service mode menu button marker not found"
     }
     if (-not (Test-Path $serviceModeQml -PathType Leaf)) {
