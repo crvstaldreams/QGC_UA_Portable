@@ -940,7 +940,7 @@ def patch_compass_interaction(root: Path) -> list[Path]:
     for token in ['preCalibrationDialogType = "gyro"', 'preCalibrationDialogType = "accel"', 'preCalibrationDialogType = "level"', 'preCalibrationDialogType = "airspeed"']:
         text = text.replace(token, "_compassDetailsVisible = false\\n                    " + token)
 
-    area = '''            Rectangle {
+    area = '''            Item {
                 id:         orientationCalArea
 '''
     panel = '''            Rectangle {
@@ -1057,8 +1057,8 @@ def patch_compass_interaction(root: Path) -> list[Path]:
                             _compassDetailsVisible = false
                             showOrientationsDialog(_calTypeAccel);''')
 
-    area = '''                    Rectangle {
-                        id:             orientationCalArea
+    area = '''                    Item {
+                        id:     centerPanel
 '''
     panel = '''                    Rectangle {
                         id: compassDetailsArea
