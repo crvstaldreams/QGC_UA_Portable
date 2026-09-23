@@ -3,8 +3,7 @@
 #include <QtQml/qqml.h>
 #include <array>
 #include "QGCMAVLink.h"
-
-class Vehicle;
+#include "Vehicle.h"
 
 class CompassTelemetryController : public QObject {
     Q_OBJECT
