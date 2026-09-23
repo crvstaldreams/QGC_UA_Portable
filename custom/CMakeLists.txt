@@ -11,6 +11,8 @@ set_property(DIRECTORY ${CMAKE_SOURCE_DIR}
 set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CustomPlugin.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CompassTelemetryController.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/CompassTelemetryController.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/MPParamsController.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/MPParamsController.h
     ${CMAKE_CURRENT_SOURCE_DIR}/qgc_custom_resources.qrc
