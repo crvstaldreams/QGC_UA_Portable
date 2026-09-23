@@ -999,17 +999,29 @@ def main() -> int:
 
     try:
         changed: list[Path] = []
-        changed.append(patch_status_utf8(root))
-        changed.append(patch_firmware_upgrade_dedupe(root))
-        changed.extend(patch_play_font(root))
-        changed.append(patch_vehicle_message_list(root))
-        changed.extend(patch_contrast_controls(root))
-        changed.append(patch_centered_tool_menu(root))
-        changed.append(patch_service_mode_menu(root))
-        changed.extend(patch_quick_vehicle_toolbar(root))
-        changed.append(patch_service_firmware_page(root))
-        changed.append(patch_splash(root))
+        patch_steps = [
+            ("status_utf8", patch_status_utf8),
+            ("firmware_upgrade_dedupe", patch_firmware_upgrade_dedupe),
+            ("play_font", patch_play_font),
+            ("vehicle_message_list", patch_vehicle_message_list),
+            ("contrast_controls", patch_contrast_controls),
+            ("centered_tool_menu", patch_centered_tool_menu),
+            ("service_mode_menu", patch_service_mode_menu),
+            ("quick_vehicle_toolbar", patch_quick_vehicle_toolbar),
+            ("service_firmware_page", patch_service_firmware_page),
+            ("splash", patch_splash),
+        ]
+        for step_name, step_fn in patch_steps:
+            print(f"UA_PATCH_STEP_BEGIN: {step_name}", flush=True)
+            result = step_fn(root)
+            if isinstance(result, list):
+                changed.extend(result)
+            else:
+                changed.append(result)
+            print(f"UA_PATCH_STEP_OK: {step_name}", flush=True)
+        print("UA_PATCH_STEP_BEGIN: verify_markers", flush=True)
         verify_markers(changed)
+        print("UA_PATCH_STEP_OK: verify_markers", flush=True)
     except (FeaturePatchError, OSError) as exc:
         print(f"QGC UA feature patch failed: {exc}", file=sys.stderr)
         return 1
