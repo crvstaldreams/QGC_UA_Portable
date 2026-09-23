@@ -643,7 +643,7 @@ def patch_service_mode_menu(root: Path) -> Path:
     function showServiceMode() {
         criticalVehicleMessagePopup.close()
         criticalVehicleMessagePopup.additionalCriticalMessagesReceived = false
-        showTool(qsTr("Спрощ. режим для сервісу"), "qrc:/qml/QGroundControl/Custom/ServiceMode.qml", "/qmlimages/Gears.svg")
+        showTool(qsTr("ARGN Service Mode"), "qrc:/qml/QGroundControl/Custom/ServiceMode.qml", "/qmlimages/Gears.svg")
     }
 '''
     text = replace_once(text, vehicle_function, vehicle_with_service, "service mode show function")
@@ -690,7 +690,7 @@ def patch_service_mode_menu(root: Path) -> Path:
                             id:                 serviceModeButton
                             height:             toolSelectDialog._toolButtonHeight
                             Layout.fillWidth:   true
-                            text:               qsTr("Спрощ. режим для сервісу")
+                            text:               qsTr("ARGN Service Mode")
                             imageResource:      "/qmlimages/Gears.svg"
                             onClicked: {
                                 if (mainWindow.allowViewSwitch()) {
@@ -822,6 +822,14 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
                     ToolTip.visible: hovered
                     ToolTip.text: modelData ? modelData.name : ""
                 }
+            }
+
+            QGCToolBarButton {
+                height: parent.height
+                icon.source: "/qmlimages/Gears.svg"
+                onClicked: mainWindow.showServiceMode()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("ARGN Service Mode")
             }
 
             QGCToolBarButton {
