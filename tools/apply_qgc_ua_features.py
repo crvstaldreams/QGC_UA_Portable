@@ -1116,6 +1116,84 @@ def patch_compass_interaction(root: Path) -> list[Path]:
     return changed
 
 
+
+def patch_parameter_disconnect_guard(root: Path) -> Path:
+    """Stop stale parameter retries/popups after the flight controller link disappears."""
+    path = root / "src" / "FactSystem" / "ParameterManager.cc"
+    text = path.read_text(encoding="utf-8")
+
+    refresh_anchor = '''void ParameterManager::refreshParameter(int componentId, const QString &paramName)
+{
+    componentId = _actualComponentId(componentId);
+'''
+    refresh_replacement = '''void ParameterManager::refreshParameter(int componentId, const QString &paramName)
+{
+    // A QML page can still request a refresh while Vehicle teardown is in
+    // progress. Do not create a retry entry if the FC no longer has a primary link.
+    if (_vehicle->vehicleLinkManager()->primaryLink().expired()) {
+        qCDebug(ParameterManagerLog) << "Ignoring parameter refresh after vehicle disconnect:" << paramName;
+        return;
+    }
+
+    componentId = _actualComponentId(componentId);
+'''
+    if "Ignoring parameter refresh after vehicle disconnect" not in text:
+        text = replace_once(text, refresh_anchor, refresh_replacement, "parameter refresh disconnect guard")
+
+    timeout_anchor = '''void ParameterManager::_waitingParamTimeout()
+{
+    if (_logReplay) {
+        return;
+    }
+
+    qCDebug(ParameterManagerLog) << _logVehiclePrefix(-1) << "_waitingParamTimeout";
+'''
+    timeout_replacement = '''void ParameterManager::_waitingParamTimeout()
+{
+    if (_logReplay) {
+        return;
+    }
+
+    // The timeout can fire after USB/serial removal but before Vehicle is fully
+    // destroyed. At that point retries cannot succeed and each exhausted named
+    // read would otherwise generate a modal "Parameter read failed" popup.
+    if (_vehicle->vehicleLinkManager()->primaryLink().expired()) {
+        qCDebug(ParameterManagerLog) << _logVehiclePrefix(-1)
+                                     << "Stopping parameter retries: vehicle has no active primary link";
+        _waitingParamTimeoutTimer.stop();
+        _indexBatchQueue.clear();
+        _waitingReadParamIndexMap.clear();
+        _waitingReadParamNameMap.clear();
+        _waitingWriteParamNameMap.clear();
+        _waitingForDefaultComponent = false;
+        return;
+    }
+
+    qCDebug(ParameterManagerLog) << _logVehiclePrefix(-1) << "_waitingParamTimeout";
+'''
+    if "Stopping parameter retries: vehicle has no active primary link" not in text:
+        text = replace_once(text, timeout_anchor, timeout_replacement, "parameter timeout disconnect guard")
+
+    # Also suppress the modal if the link disappears during the final retry.
+    popup_anchor = '''                    const QString errorMsg = tr("Parameter read failed: veh:%1 comp:%2 param:%3").arg(_vehicle->id()).arg(componentId).arg(paramName);
+                    qCDebug(ParameterManagerLog) << errorMsg;
+                    qgcApp()->showAppMessage(errorMsg);
+'''
+    popup_replacement = '''                    const QString errorMsg = tr("Parameter read failed: veh:%1 comp:%2 param:%3").arg(_vehicle->id()).arg(componentId).arg(paramName);
+                    qCDebug(ParameterManagerLog) << errorMsg;
+                    if (!_vehicle->vehicleLinkManager()->primaryLink().expired()) {
+                        qgcApp()->showAppMessage(errorMsg);
+                    } else {
+                        qCDebug(ParameterManagerLog) << "Suppressing stale parameter read popup after disconnect";
+                    }
+'''
+    if "Suppressing stale parameter read popup after disconnect" not in text:
+        text = replace_once(text, popup_anchor, popup_replacement, "parameter read popup disconnect guard")
+
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
 def patch_splash(root: Path) -> Path:
     path = root / "src" / "main.cc"
     text = path.read_text(encoding="utf-8")
@@ -1225,6 +1303,7 @@ def main() -> int:
         changed.extend(patch_quick_vehicle_toolbar(root))
         changed.append(patch_service_firmware_page(root))
         changed.extend(patch_compass_interaction(root))
+        changed.append(patch_parameter_disconnect_guard(root))
         changed.append(patch_splash(root))
         verify_markers(changed)
     except (FeaturePatchError, OSError) as exc:
