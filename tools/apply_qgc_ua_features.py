@@ -901,220 +901,248 @@ def patch_service_firmware_page(root: Path) -> Path:
 
 
 def patch_compass_interaction(root: Path) -> list[Path]:
-    """Add firmware-aware compass status/interaction to both PX4 and ArduPilot."""
+    """Show compass cards in the main Sensors area only after Compass is selected."""
     changed: list[Path] = []
 
-    # PX4: CAL_MAGx_ID/CAL_MAGx_ROT are the authoritative QGC-facing facts.
     px4 = root / "src" / "AutoPilotPlugins" / "PX4" / "SensorsSetup.qml"
     text = px4.read_text(encoding="utf-8")
     anchor = '''    property bool   _sensorsHaveFixedOrientation:       QGroundControl.corePlugin.options.sensorsHaveFixedOrientation
 '''
-    helper = '''    function compassTypeText(index) {
+    helper = '''    property bool _compassDetailsVisible: false
+
+    function compassTypeText(index) {
         const idName = _calMagIdParamFormat.replace("#", index)
         const rotName = _calMagRotParamFormat.replace("#", index)
-        if (!controller.parameterExists(-1, idName)) {
-            return ""
-        }
-        const idFact = controller.getParameterFact(-1, idName)
-        if (idFact.value <= 0) {
-            return ""
-        }
-        if (!controller.parameterExists(-1, rotName)) {
-            return qsTr("Connected")
-        }
+        if (!controller.parameterExists(-1, idName) || controller.getParameterFact(-1, idName).value <= 0) return ""
+        if (!controller.parameterExists(-1, rotName)) return qsTr("Connected")
         return controller.getParameterFact(-1, rotName).value < 0 ? qsTr("Internal") : qsTr("External")
     }
 
     function compassOrientationText(index) {
         const rotName = _calMagRotParamFormat.replace("#", index)
-        if (!controller.parameterExists(-1, rotName)) {
-            return qsTr("Unknown")
-        }
-        const rotFact = controller.getParameterFact(-1, rotName)
-        return rotFact.value < 0 ? qsTr("Fixed / internal") : rotFact.enumStringValue
+        if (!controller.parameterExists(-1, rotName)) return qsTr("Unknown")
+        const fact = controller.getParameterFact(-1, rotName)
+        return fact.value < 0 ? qsTr("Fixed / internal") : fact.enumStringValue
     }
 
 '''
-    if "function compassTypeText(index)" not in text:
-        text = replace_once(text, anchor, helper + anchor, "PX4 compass facts helper")
+    text = replace_once(text, anchor, helper + anchor, "PX4 compass helpers")
 
-    anchor = '''            IndicatorButton {
-                id:             gyroButton
+    old = '''                onClicked: {
+                    preCalibrationDialogType = "compass"
+                    preCalibrationDialogHelp = compassHelp
+                    preCalibrationDialogComponent.createObject(mainWindow, { title: qsTr("Calibrate Compass") }).open()
+                }
+'''
+    text = replace_once(text, old, '''                onClicked: _compassDetailsVisible = true
+''', "PX4 Compass selector")
+
+    for token in ['preCalibrationDialogType = "gyro"', 'preCalibrationDialogType = "accel"', 'preCalibrationDialogType = "level"', 'preCalibrationDialogType = "airspeed"']:
+        text = text.replace(token, "_compassDetailsVisible = false\\n                    " + token)
+
+    area = '''            Rectangle {
+                id:         orientationCalArea
 '''
     panel = '''            Rectangle {
-                width:          _buttonWidth
-                visible:        compassButton.visible && !controller.calibrationActive
-                radius:         ScreenTools.defaultFontPixelWidth / 2
-                color:          qgcPal.windowShade
-                border.width:   1
-                border.color:   qgcPal.text
-                height:         px4CompassInfo.implicitHeight + ScreenTools.defaultFontPixelHeight
+                id: compassDetailsArea
+                width: parent.calDisplayAreaWidth
+                height: parent.height
+                visible: _compassDetailsVisible && !controller.showOrientationCalArea
+                color: qgcPal.windowShade
+                z: 2
 
                 Column {
-                    id:             px4CompassInfo
-                    anchors.left:   parent.left
-                    anchors.right:  parent.right
-                    anchors.margins: ScreenTools.defaultFontPixelWidth / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing:        ScreenTools.defaultFontPixelHeight / 4
+                    anchors.fill: parent
+                    anchors.margins: ScreenTools.defaultFontPixelWidth
+                    spacing: ScreenTools.defaultFontPixelHeight / 2
 
-                    QGCLabel {
+                    QGCLabel { text: qsTr("Compass"); font.pointSize: ScreenTools.largeFontPointSize; font.bold: true }
+                    QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: qsTr("Connected PX4 compasses. Each card shows type, device ID, orientation and the current heading.") }
+
+                    Row {
                         width: parent.width
-                        text: qsTr("PX4 compasses")
-                        font.bold: true
-                    }
+                        spacing: ScreenTools.defaultFontPixelWidth
 
-                    Repeater {
-                        model: currentMagParamCount()
-                        Column {
-                            width: parent.width
-                            visible: px4CompassId.value > 0
-                            property Fact px4CompassId: controller.getParameterFact(-1, _calMagIdParamFormat.replace("#", index))
+                        Repeater {
+                            model: currentMagParamCount()
+                            Rectangle {
+                                width: (parent.width - Math.max(0, currentMagParamCount() - 1) * parent.spacing) / Math.max(1, currentMagParamCount())
+                                height: Math.min(compassDetailsArea.height * 0.76, ScreenTools.defaultFontPixelHeight * 30)
+                                visible: compassId.value > 0
+                                radius: ScreenTools.defaultFontPixelWidth / 2
+                                color: qgcPal.window
+                                border.width: 1
+                                border.color: qgcPal.text
+                                property Fact compassId: controller.getParameterFact(-1, _calMagIdParamFormat.replace("#", index))
+                                property real heading: globals.activeVehicle ? globals.activeVehicle.heading.rawValue : NaN
 
-                            QGCLabel {
-                                width: parent.width
-                                text: qsTr("Compass %1: %2").arg(index + 1).arg(compassTypeText(index))
-                                font.bold: true
+                                Column {
+                                    anchors.fill: parent
+                                    anchors.margins: ScreenTools.defaultFontPixelWidth
+                                    spacing: ScreenTools.defaultFontPixelHeight / 3
+                                    QGCLabel { text: qsTr("Compass %1 (%2)").arg(index + 1).arg(compassTypeText(index)); font.bold: true; width: parent.width; wrapMode: Text.WordWrap }
+                                    QGCLabel { text: qsTr("Device ID: %1").arg(compassId.value) }
+                                    QGCLabel { text: qsTr("Orientation: %1").arg(compassOrientationText(index)); width: parent.width; wrapMode: Text.WordWrap }
+                                    Item {
+                                        width: Math.min(parent.width, ScreenTools.defaultFontPixelHeight * 14); height: width; anchors.horizontalCenter: parent.horizontalCenter
+                                        Rectangle { anchors.fill: parent; radius: width / 2; color: "#090909"; border.width: 1; border.color: qgcPal.text }
+                                        QGCLabel { text: "N"; anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; anchors.topMargin: 4 }
+                                        QGCLabel { text: "S"; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 4 }
+                                        QGCLabel { text: "W"; anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 4 }
+                                        QGCLabel { text: "E"; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; anchors.rightMargin: 4 }
+                                        Canvas {
+                                            anchors.centerIn: parent; width: parent.width * 0.55; height: width
+                                            rotation: isNaN(heading) ? 0 : heading
+                                            onPaint: {
+                                                const ctx = getContext("2d"); ctx.reset(); ctx.beginPath()
+                                                ctx.moveTo(width/2, 2); ctx.lineTo(width*0.78, height*0.72); ctx.lineTo(width/2, height*0.58); ctx.lineTo(width*0.22, height*0.72); ctx.closePath()
+                                                ctx.fillStyle = "#ef3123"; ctx.fill(); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.5; ctx.stroke()
+                                            }
+                                        }
+                                        QGCLabel { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: ScreenTools.defaultFontPixelHeight; text: isNaN(heading) ? "---" : Math.round(heading) + "°"; font.bold: true }
+                                    }
+                                    QGCButton {
+                                        width: parent.width; text: qsTr("Change orientation")
+                                        onClicked: { setOrientationsDialogShowBoardOrientation = false; setOrientationsDialogComponent.createObject(mainWindow, { title: qsTr("Set Orientations"), showRebootVehicleButton: false }).open() }
+                                    }
+                                    QGCButton {
+                                        width: parent.width; text: qsTr("Calibrate compasses")
+                                        onClicked: { preCalibrationDialogType = "compass"; preCalibrationDialogHelp = compassHelp; preCalibrationDialogComponent.createObject(mainWindow, { title: qsTr("Calibrate Compass") }).open() }
+                                    }
+                                }
                             }
-                            QGCLabel {
-                                width: parent.width
-                                text: qsTr("ID: %1").arg(px4CompassId.value)
-                                wrapMode: Text.WordWrap
-                            }
-                            QGCLabel {
-                                width: parent.width
-                                text: qsTr("Orientation: %1").arg(compassOrientationText(index))
-                                wrapMode: Text.WordWrap
-                            }
-                        }
-                    }
-
-                    QGCButton {
-                        width: parent.width
-                        text: qsTr("Compass settings")
-                        onClicked: {
-                            setOrientationsDialogShowBoardOrientation = false
-                            setOrientationsDialogComponent.createObject(mainWindow, { title: qsTr("Set Orientations"), showRebootVehicleButton: false }).open()
                         }
                     }
                 }
             }
 
 '''
-    if 'text: qsTr("PX4 compasses")' not in text:
-        text = replace_once(text, anchor, panel + anchor, "PX4 compass interaction panel")
+    text = replace_once(text, area, panel + area, "PX4 compass main panel")
     px4.write_text(text, encoding="utf-8", newline="\n")
     changed.append(px4)
 
-    # ArduPilot: reuse APMSensorParams, which already normalizes COMPASS_DEV_ID,
-    # COMPASS_EXTERNAL/EXTERN2/3, COMPASS_USE/2/3, COMPASS_ORIENT/2/3 and primary.
     apm = root / "src" / "AutoPilotPlugins" / "APM" / "APMSensorsComponent.qml"
     text = apm.read_text(encoding="utf-8")
-    anchor = '''            APMSensorsComponentController {
+    anchor = '''            property bool   _orientationsDialogShowCompass: true
 '''
-    helper = '''            function apmCompassStateText(index) {
-                if (!sensorParams.rgCompassAvailable[index]) {
-                    return qsTr("Not connected")
-                }
+    helper = '''            property bool   _compassDetailsVisible: false
+
+            function apmCompassStateText(index) {
+                if (!sensorParams.rgCompassAvailable[index]) return qsTr("Not connected")
                 const role = sensorParams.rgCompassExternal[index] ? qsTr("External") : qsTr("Internal")
                 const enabled = sensorParams.rgCompassUseFact[index].value ? qsTr("enabled") : qsTr("disabled")
                 return role + " · " + enabled
             }
 
             function apmCompassOrientationText(index) {
-                if (!sensorParams.rgCompassRotParamAvailable[index]) {
-                    return qsTr("Unknown")
-                }
+                if (!sensorParams.rgCompassRotParamAvailable[index]) return qsTr("Unknown")
                 return sensorParams.rgCompassRotFact[index].enumStringValue
             }
 
 '''
-    if "function apmCompassStateText(index)" not in text:
-        text = replace_once(text, anchor, helper + anchor, "ArduPilot compass facts helper")
+    text = replace_once(text, anchor, helper + anchor, "ArduPilot compass helpers")
 
-    # Add the status block immediately after APMSensorParams so it is available on
-    # the normal Sensors page without replacing ArduPilot's native calibration.
-    anchor = '''            APMSensorsComponentController {
+    old = '''                        onClicked: {
+                            if (controller.accelSetupNeeded) {
+                                mainWindow.showMessageDialog(qsTr("Calibrate Compass"), qsTr("Accelerometer must be calibrated prior to Compass."))
+                            } else {
+                                showOrientationsDialog(_calTypeCompass)
+                            }
+                        }
 '''
-    panel = '''            Rectangle {
-                id:             apmCompassInfoPanel
-                width:          _buttonWidth
-                visible:        !controller.calibrationActive
-                radius:         ScreenTools.defaultFontPixelWidth / 2
-                color:          qgcPal.windowShade
-                border.width:   1
-                border.color:   qgcPal.text
-                height:         apmCompassInfo.implicitHeight + ScreenTools.defaultFontPixelHeight
+    text = replace_once(text, old, '''                        onClicked: _compassDetailsVisible = true
+''', "ArduPilot Compass selector")
+    text = text.replace('''                        onClicked: function () {
+                            showOrientationsDialog(_calTypeAccel);''', '''                        onClicked: function () {
+                            _compassDetailsVisible = false
+                            showOrientationsDialog(_calTypeAccel);''')
 
-                Column {
-                    id:             apmCompassInfo
-                    anchors.left:   parent.left
-                    anchors.right:  parent.right
-                    anchors.margins: ScreenTools.defaultFontPixelWidth / 2
-                    anchors.verticalCenter: parent.verticalCenter
-                    spacing:        ScreenTools.defaultFontPixelHeight / 4
+    area = '''                    Rectangle {
+                        id:             orientationCalArea
+'''
+    panel = '''                    Rectangle {
+                        id: compassDetailsArea
+                        anchors.fill: parent
+                        visible: _compassDetailsVisible && !controller.showOrientationCalArea
+                        color: qgcPal.windowShade
+                        z: 2
 
-                    QGCLabel {
-                        width: parent.width
-                        text: qsTr("ArduPilot compasses")
-                        font.bold: true
-                    }
-
-                    Repeater {
-                        model: 3
                         Column {
-                            width: parent.width
-                            visible: sensorParams.rgCompassAvailable[index]
+                            anchors.fill: parent
+                            anchors.margins: ScreenTools.defaultFontPixelWidth
+                            spacing: ScreenTools.defaultFontPixelHeight / 2
 
-                            QGCLabel {
+                            QGCLabel { text: qsTr("Compass"); font.pointSize: ScreenTools.largeFontPointSize; font.bold: true }
+                            QGCLabel { width: parent.width; wrapMode: Text.WordWrap; text: qsTr("Connected ArduPilot compasses. Each card shows type, device ID, orientation, use state and the current heading.") }
+
+                            Row {
                                 width: parent.width
-                                text: compassLabel(index)
-                                font.bold: true
+                                spacing: ScreenTools.defaultFontPixelWidth
+
+                                Repeater {
+                                    model: 3
+                                    Rectangle {
+                                        width: (parent.width - 2 * parent.spacing) / 3
+                                        height: Math.min(compassDetailsArea.height * 0.76, ScreenTools.defaultFontPixelHeight * 31)
+                                        visible: sensorParams.rgCompassAvailable[index]
+                                        radius: ScreenTools.defaultFontPixelWidth / 2
+                                        color: qgcPal.window
+                                        border.width: 1
+                                        border.color: qgcPal.text
+                                        property real heading: globals.activeVehicle ? globals.activeVehicle.heading.rawValue : NaN
+
+                                        Column {
+                                            anchors.fill: parent
+                                            anchors.margins: ScreenTools.defaultFontPixelWidth
+                                            spacing: ScreenTools.defaultFontPixelHeight / 3
+                                            QGCLabel { text: compassLabel(index); font.bold: true; width: parent.width; wrapMode: Text.WordWrap }
+                                            QGCLabel { text: qsTr("Device ID: %1").arg(sensorParams.rgCompassId[index].value) }
+                                            QGCLabel { text: apmCompassStateText(index); width: parent.width; wrapMode: Text.WordWrap }
+                                            QGCLabel { text: qsTr("Orientation: %1").arg(apmCompassOrientationText(index)); width: parent.width; wrapMode: Text.WordWrap }
+                                            Item {
+                                                width: Math.min(parent.width, ScreenTools.defaultFontPixelHeight * 14); height: width; anchors.horizontalCenter: parent.horizontalCenter
+                                                Rectangle { anchors.fill: parent; radius: width / 2; color: "#090909"; border.width: 1; border.color: qgcPal.text }
+                                                QGCLabel { text: "N"; anchors.horizontalCenter: parent.horizontalCenter; anchors.top: parent.top; anchors.topMargin: 4 }
+                                                QGCLabel { text: "S"; anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: 4 }
+                                                QGCLabel { text: "W"; anchors.verticalCenter: parent.verticalCenter; anchors.left: parent.left; anchors.leftMargin: 4 }
+                                                QGCLabel { text: "E"; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; anchors.rightMargin: 4 }
+                                                Canvas {
+                                                    anchors.centerIn: parent; width: parent.width * 0.55; height: width
+                                                    rotation: isNaN(heading) ? 0 : heading
+                                                    onPaint: {
+                                                        const ctx = getContext("2d"); ctx.reset(); ctx.beginPath()
+                                                        ctx.moveTo(width/2, 2); ctx.lineTo(width*0.78, height*0.72); ctx.lineTo(width/2, height*0.58); ctx.lineTo(width*0.22, height*0.72); ctx.closePath()
+                                                        ctx.fillStyle = "#ef3123"; ctx.fill(); ctx.strokeStyle = "#ffffff"; ctx.lineWidth = 1.5; ctx.stroke()
+                                                    }
+                                                }
+                                                QGCLabel { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: ScreenTools.defaultFontPixelHeight; text: isNaN(heading) ? "---" : Math.round(heading) + "°"; font.bold: true }
+                                            }
+                                            FactCheckBox { visible: sensorParams.rgCompassUseParamAvailable[index] && !sensorParams.rgCompassPrimary[index]; text: qsTr("Use Compass"); fact: sensorParams.rgCompassUseFact[index] }
+                                            QGCButton { width: parent.width; text: qsTr("Change orientation"); enabled: sensorParams.rgCompassRotParamAvailable[index]; onClicked: showOrientationsDialog(_calTypeSet) }
+                                        }
+                                    }
+                                }
                             }
-                            QGCLabel {
-                                width: parent.width
-                                text: apmCompassStateText(index)
-                                wrapMode: Text.WordWrap
-                            }
-                            QGCLabel {
-                                width: parent.width
-                                text: qsTr("ID: %1").arg(sensorParams.rgCompassId[index].value)
-                                wrapMode: Text.WordWrap
-                            }
-                            QGCLabel {
-                                width: parent.width
-                                text: qsTr("Orientation: %1").arg(apmCompassOrientationText(index))
-                                wrapMode: Text.WordWrap
-                            }
-                            QGCCheckBox {
-                                visible: sensorParams.rgCompassUseParamAvailable[index]
-                                text: qsTr("Use compass")
-                                checked: sensorParams.rgCompassUseFact[index].value
-                                onClicked: sensorParams.rgCompassUseFact[index].value = checked ? 1 : 0
+
+                            Row {
+                                spacing: ScreenTools.defaultFontPixelWidth
+                                QGCButton { text: qsTr("Sensor Settings"); onClicked: showOrientationsDialog(_calTypeSet) }
+                                QGCButton {
+                                    text: qsTr("Calibrate compasses")
+                                    onClicked: {
+                                        if (controller.accelSetupNeeded) mainWindow.showMessageDialog(qsTr("Calibrate Compass"), qsTr("Accelerometer must be calibrated prior to Compass."))
+                                        else showOrientationsDialog(_calTypeCompass)
+                                    }
+                                }
                             }
                         }
                     }
 
-                    QGCButton {
-                        width: parent.width
-                        text: qsTr("Sensor settings")
-                        onClicked: showOrientationsDialog(_calTypeSet)
-                    }
-                    QGCButton {
-                        width: parent.width
-                        text: qsTr("Calibrate compasses")
-                        onClicked: showOrientationsDialog(_calTypeCompass)
-                    }
-                }
-            }
-
 '''
-    if 'text: qsTr("ArduPilot compasses")' not in text:
-        text = replace_once(text, anchor, panel + anchor, "ArduPilot compass interaction panel")
+    text = replace_once(text, area, panel + area, "ArduPilot compass main panel")
     apm.write_text(text, encoding="utf-8", newline="\n")
     changed.append(apm)
     return changed
-
 
 
 def patch_parameter_disconnect_guard(root: Path) -> Path:
