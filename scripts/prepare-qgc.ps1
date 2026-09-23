@@ -43,8 +43,7 @@ try {
     $patches = @(
         (Join-Path $OverlayRoot "patches\0001-mavlink-console-utf8.patch"),
         (Join-Path $OverlayRoot "patches\0002-ukrainian-default.patch"),
-        (Join-Path $OverlayRoot "patches\0003-pin-px4-gpsdrivers.patch"),
-        (Join-Path $OverlayRoot "patches\0004-px4-compass-info.patch")
+        (Join-Path $OverlayRoot "patches\0003-pin-px4-gpsdrivers.patch")
     )
     foreach ($patch in $patches) {
         Write-Host "Checking patch: $(Split-Path $patch -Leaf)"
