@@ -158,6 +158,7 @@ try {
     $serviceMavlinkQml = Join-Path $QgcRoot "custom\qml\ServiceMavlinkStatus.qml"
     $serviceMPParamsQml = Join-Path $QgcRoot "custom\qml\ServiceMPParams.qml"
     $serviceMapQml = Join-Path $QgcRoot "custom\qml\ServiceMap.qml"
+    $serviceCompassesQml = Join-Path $QgcRoot "custom\qml\ServiceCompasses.qml"
     $mpParamsController = Join-Path $QgcRoot "custom\src\MPParamsController.cc"
     if (-not (Select-String -Path $mainWindow.FullName -Pattern 'ARGN Service Mode' -Quiet)) {
         throw "Service mode menu button marker not found"
@@ -171,6 +172,7 @@ try {
         'text:\s*"Прошивка"',
         'text:\s*"Параметри"',
         'text:\s*"Датчики"',
+        'text:\s*"Компаси"',
         'text:\s*"Servo/Saf.Mask"',
         'text:\s*"MAVLink Status"',
         'text:\s*"MP Params"',
@@ -185,6 +187,15 @@ try {
             throw "Service mode marker not found: $serviceMarker"
         }
     }
+    if (-not (Test-Path $serviceCompassesQml -PathType Leaf)) {
+        throw "ServiceCompasses.qml missing from custom overlay"
+    }
+    foreach ($compassMarker in @('FactPanelController', 'CAL_MAG', 'COMPASS_DEV_ID', 'Device ID', 'Калібрувати')) {
+        if (-not (Select-String -Path $serviceCompassesQml -Pattern $compassMarker -Quiet)) {
+            throw "Service compasses marker not found: $compassMarker"
+        }
+    }
+
     if (-not (Test-Path $serviceMapQml -PathType Leaf)) {
         throw "ServiceMap.qml missing from custom overlay"
     }
