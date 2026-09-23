@@ -1139,7 +1139,13 @@ def patch_compass_interaction(root: Path) -> list[Path]:
                     }
 
 '''
-    text = replace_once(text, area, panel + area, "ArduPilot compass main panel")
+    center_open = '''                    Item {
+                        id:     centerPanel
+                        width:  parent.width
+                        height: parent.height - y
+
+'''
+    text = replace_once(text, center_open, center_open + panel, "ArduPilot compass main panel")
     apm.write_text(text, encoding="utf-8", newline="\n")
     changed.append(apm)
     return changed
