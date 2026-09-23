@@ -59,6 +59,24 @@ Item {
         if (label.indexOf("YAW_45") >= 0) return 45
         return 0
     }
+    function magX(i) { return i===0 ? compassTelemetry.x1 : (i===1 ? compassTelemetry.x2 : compassTelemetry.x3) }
+    function magY(i) { return i===0 ? compassTelemetry.y1 : (i===1 ? compassTelemetry.y2 : compassTelemetry.y3) }
+    function magZ(i) { return i===0 ? compassTelemetry.z1 : (i===1 ? compassTelemetry.z2 : compassTelemetry.z3) }
+    function magField(i) { return i===0 ? compassTelemetry.field1 : (i===1 ? compassTelemetry.field2 : compassTelemetry.field3) }
+    function magValid(i) { return i===0 ? compassTelemetry.valid1 : (i===1 ? compassTelemetry.valid2 : compassTelemetry.valid3) }
+    function fieldState(i) {
+        if (!magValid(i)) return 0
+        const f=magField(i)
+        if (f > 1000 || f < 150) return 2
+        if (f > 800 || f < 200) return 1
+        return 0
+    }
+    function fieldStateText(i) {
+        if (!magValid(i)) return "RAW MAG немає"
+        if (fieldState(i)===2) return "МАГНІТНЕ ПОЛЕ ПОЗА НОРМОЮ"
+        if (fieldState(i)===1) return "Перевірте магнітне поле"
+        return "Магнітне поле в нормі"
+    }
     function rawHeading(i) {
         if (i === 0 && compassTelemetry.valid1) return compassTelemetry.heading1
         if (i === 1 && compassTelemetry.valid2) return compassTelemetry.heading2
@@ -135,7 +153,7 @@ Item {
                     model: 3
                     Rectangle {
                         Layout.fillWidth: true
-                        Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 29
+                        Layout.preferredHeight: ScreenTools.defaultFontPixelHeight * 36
                         visible: connected(index)
                         radius: ScreenTools.defaultFontPixelWidth / 2
                         color: qgcPal.window
@@ -161,6 +179,21 @@ Item {
                             QGCLabel { text: "Device ID:  " + compassId(index) }
                             QGCLabel { text: "Орієнтація:  " + orientation(index); Layout.fillWidth: true; elide: Text.ElideRight }
                             QGCLabel { text: "Прошивка:  " + (isArduPilot ? "ArduPilot (COMPASS_*)" : "PX4 (CAL_MAG" + (index+1) + "_*)") }
+
+                            Rectangle {
+                                Layout.fillWidth: true
+                                Layout.preferredHeight: magColumn.implicitHeight + ScreenTools.defaultFontPixelHeight
+                                radius: ScreenTools.defaultFontPixelWidth/3
+                                color: root.fieldState(index)===2 ? "#5b1010" : (root.fieldState(index)===1 ? "#5b4a00" : qgcPal.windowShade)
+                                ColumnLayout {
+                                    id: magColumn
+                                    anchors.fill: parent
+                                    anchors.margins: ScreenTools.defaultFontPixelWidth
+                                    QGCLabel { text: root.magValid(index) ? ("X: " + Math.round(root.magX(index)) + "   Y: " + Math.round(root.magY(index)) + "   Z: " + Math.round(root.magZ(index)) + " mG") : "X / Y / Z: —"; font.family: "monospace" }
+                                    QGCLabel { text: root.magValid(index) ? ("|B|: " + Math.round(root.magField(index)) + " mG") : "|B|: —"; font.bold: true }
+                                    QGCLabel { Layout.fillWidth: true; text: root.fieldStateText(index); font.bold: true; wrapMode: Text.WordWrap }
+                                }
+                            }
 
                             Item {
                                 Layout.alignment: Qt.AlignHCenter
@@ -221,7 +254,7 @@ Item {
                 QGCLabel {
                     id: info; anchors.fill: parent; anchors.margins: ScreenTools.defaultFontPixelWidth
                     wrapMode: Text.WordWrap
-                    text: "Внутрішній компас знаходиться на польотному контролері. Зовнішні компаси можуть бути підключені через GPS/MAG модулі. Кожна картка прив'язана до власного компаса. Індикатори використовують окремі MAVLink магнітометричні потоки RAW_IMU, SCALED_IMU2 та SCALED_IMU3. Якщо прошивка не передає RAW MAG для конкретного сенсора, картка явно переходить на його параметр орієнтації."
+                    text: "Внутрішній компас знаходиться на польотному контролері. Зовнішні компаси можуть бути підключені через GPS/MAG модулі. Кожна картка прив'язана до власного компаса. X/Y/Z та |B| показуються в реальному часі з окремих RAW_IMU, SCALED_IMU2 і SCALED_IMU3. Орієнтовний нормальний діапазон |B| позначається автоматично; червоне попередження означає сильну магнітну заваду або аномальне поле. Якщо RAW MAG для сенсора не передається, індикатор переходить на його параметр орієнтації."
                 }
             }
         }
