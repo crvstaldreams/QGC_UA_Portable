@@ -13,6 +13,9 @@ Item {
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property bool isArduPilot: activeVehicle ? activeVehicle.apmFirmware : false
     readonly property int preflightCalibrationCommand: 241
+    readonly property int preflightRebootShutdownCommand: 246
+    property bool magnetometerRebootPending: false
+    property string magnetometerRebootStatus: ""
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
     FactPanelController { id: controller }
@@ -43,6 +46,25 @@ Item {
     function setOrientation(i, value) { const f=fact(rotName(i)); if (f) f.rawValue=value }
     function calibrate() {
         if (activeVehicle) activeVehicle.sendCommand(1, preflightCalibrationCommand, true, 0, 1, 0, 0, 0, 0, 0)
+    }
+    function rebootMagnetometers() {
+        if (!activeVehicle || magnetometerRebootPending) return
+        // MAVLink has no portable command that power-cycles only magnetometers.
+        // Reboot the autopilot so all internal/external MAG drivers are reinitialised.
+        magnetometerRebootPending = true
+        magnetometerRebootStatus = "Перезавантаження магнітометрів…"
+        activeVehicle.sendCommand(1, preflightRebootShutdownCommand, true, 1, 0, 0, 0, 0, 0, 0)
+        magnetometerRebootTimer.restart()
+    }
+
+    Timer {
+        id: magnetometerRebootTimer
+        interval: 8000
+        repeat: false
+        onTriggered: {
+            root.magnetometerRebootPending = false
+            root.magnetometerRebootStatus = root.activeVehicle ? "Магнітометри повторно ініціалізовано" : "Очікування повторного підключення борту"
+        }
     }
 
     Flickable {
@@ -142,6 +164,21 @@ Item {
                             QGCButton { Layout.fillWidth: true; text: "Калібрувати"; onClicked: root.calibrate() }
                         }
                     }
+                }
+            }
+
+            RowLayout {
+                Layout.fillWidth: true
+                QGCButton {
+                    Layout.fillWidth: true
+                    text: root.magnetometerRebootPending ? "Перезавантаження…" : "Перезавантажити магнітометри"
+                    enabled: !!root.activeVehicle && !root.magnetometerRebootPending
+                    onClicked: root.rebootMagnetometers()
+                }
+                QGCLabel {
+                    Layout.fillWidth: true
+                    text: root.magnetometerRebootStatus
+                    wrapMode: Text.WordWrap
                 }
             }
 
