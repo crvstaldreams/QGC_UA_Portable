@@ -12,7 +12,6 @@ Item {
     id: root
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property bool isArduPilot: activeVehicle ? activeVehicle.apmFirmware : false
-    property real heading: activeVehicle ? Number(activeVehicle.heading.rawValue) : NaN
     readonly property int preflightCalibrationCommand: 241
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
@@ -29,6 +28,18 @@ Item {
     function external(i) { const f=fact(extName(i)); if (!f) return i > 0; return isArduPilot ? Number(f.rawValue)!==0 : Number(f.rawValue)>=0 }
     function enabledCompass(i) { const n=useName(i); const f=n ? fact(n) : null; return f ? Number(f.rawValue)!==0 : connected(i) }
     function orientation(i) { const f=fact(rotName(i)); return f ? f.enumStringValue : "—" }
+    function orientationYaw(i) {
+        const label = orientation(i).toUpperCase()
+        if (label.indexOf("YAW_315") >= 0) return 315
+        if (label.indexOf("YAW_270") >= 0) return 270
+        if (label.indexOf("YAW_225") >= 0) return 225
+        if (label.indexOf("YAW_180") >= 0) return 180
+        if (label.indexOf("YAW_135") >= 0) return 135
+        if (label.indexOf("YAW_90") >= 0) return 90
+        if (label.indexOf("YAW_45") >= 0) return 45
+        return 0
+    }
+    function compassVisualAngle(i) { return orientationYaw(i) }
     function setOrientation(i, value) { const f=fact(rotName(i)); if (f) f.rawValue=value }
     function calibrate() {
         if (activeVehicle) activeVehicle.sendCommand(1, preflightCalibrationCommand, true, 0, 1, 0, 0, 0, 0, 0)
@@ -108,14 +119,14 @@ Item {
                                 QGCLabel { text:"E"; anchors.verticalCenter: parent.verticalCenter; anchors.right: parent.right; anchors.rightMargin: 7 }
                                 Canvas {
                                     anchors.centerIn: parent; width: parent.width*0.55; height: width
-                                    rotation: isNaN(root.heading) ? 0 : root.heading
+                                    rotation: root.compassVisualAngle(index)
                                     onPaint: {
                                         const ctx=getContext("2d"); ctx.clearRect(0,0,width,height); ctx.beginPath()
                                         ctx.moveTo(width/2,2); ctx.lineTo(width*0.78,height*0.72); ctx.lineTo(width/2,height*0.58); ctx.lineTo(width*0.22,height*0.72); ctx.closePath()
                                         ctx.fillStyle="#ef3123"; ctx.fill(); ctx.strokeStyle="#ffffff"; ctx.lineWidth=1.5; ctx.stroke()
                                     }
                                 }
-                                QGCLabel { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: ScreenTools.defaultFontPixelHeight; text: isNaN(root.heading) ? "---" : Math.round(root.heading)+"°"; font.bold:true }
+                                QGCLabel { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: ScreenTools.defaultFontPixelHeight; text: root.compassVisualAngle(index) + "°"; font.bold:true }
                             }
 
                             QGCComboBox {
@@ -141,7 +152,7 @@ Item {
                 QGCLabel {
                     id: info; anchors.fill: parent; anchors.margins: ScreenTools.defaultFontPixelWidth
                     wrapMode: Text.WordWrap
-                    text: "Внутрішній компас знаходиться на польотному контролері. Зовнішні компаси можуть бути підключені через GPS/MAG модулі. Круговий індикатор показує поточний курс борту; Device ID, тип та орієнтація читаються окремо для кожного компаса."
+                    text: "Внутрішній компас знаходиться на польотному контролері. Зовнішні компаси можуть бути підключені через GPS/MAG модулі. Кожна картка прив'язана до власного набору параметрів компаса. Круговий індикатор показує індивідуальну орієнтацію встановлення цього компаса, а не спільний курс борту. Device ID, тип, стан та орієнтація читаються окремо для кожного компаса."
                 }
             }
         }
