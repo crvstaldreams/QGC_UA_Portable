@@ -13,6 +13,7 @@ Item {
     id: root
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
     property bool isArduPilot: activeVehicle ? activeVehicle.apmFirmware : false
+    property var sensorComponent: findSensorComponent()
     readonly property int preflightCalibrationCommand: 241
     readonly property int preflightRebootShutdownCommand: 246
     property bool magnetometerRebootPending: false
@@ -22,6 +23,20 @@ Item {
     FactPanelController { id: controller }
     CompassTelemetryController { id: compassTelemetry; vehicle: root.activeVehicle }
 
+    function findSensorComponent() {
+        if (!activeVehicle || !activeVehicle.autopilotPlugin) return null
+        const components=activeVehicle.autopilotPlugin.vehicleComponents
+        if (!components) return null
+        const count=components.length !== undefined ? components.length : components.count
+        for (let i=0;i<count;i++) {
+            const component=components[i] !== undefined ? components[i] : components.get(i)
+            if (!component) continue
+            const name=component.name ? component.name.toLowerCase() : ""
+            const source=component.setupSource ? component.setupSource.toString().toLowerCase() : ""
+            if (name.indexOf("sensor") >= 0 || source.indexOf("sensor") >= 0) return component
+        }
+        return null
+    }
     function exists(name) { return controller.parameterExists(-1, name) }
     function fact(name) { return exists(name) ? controller.getParameterFact(-1, name, false) : null }
     function idName(i) { return isArduPilot ? (i === 0 ? "COMPASS_DEV_ID" : "COMPASS_DEV_ID" + (i + 1)) : "CAL_MAG" + i + "_ID" }
@@ -56,7 +71,13 @@ Item {
     }
     function setOrientation(i, value) { const f=fact(rotName(i)); if (f) f.rawValue=value }
     function calibrate() {
-        if (activeVehicle) activeVehicle.sendCommand(1, preflightCalibrationCommand, true, 0, 1, 0, 0, 0, 0, 0)
+        if (!activeVehicle) return
+        // Use the stock QGC Sensors calibration page instead of sending
+        // MAV_CMD_PREFLIGHT_CALIBRATION directly. PX4 and ArduPilot use
+        // different calibration flows and QGC already handles both.
+        if (mainWindow && mainWindow.showVehicleComponentConfigPage && root.sensorComponent) {
+            mainWindow.showVehicleComponentConfigPage(root.sensorComponent)
+        }
     }
     function rebootMagnetometers() {
         if (!activeVehicle || magnetometerRebootPending) return
@@ -172,7 +193,7 @@ Item {
                                     if (f && currentIndex >= 0) f.enumIndex=currentIndex
                                 }
                             }
-                            QGCButton { Layout.fillWidth: true; text: "Калібрувати"; onClicked: root.calibrate() }
+                            QGCButton { Layout.fillWidth: true; text: "Калібрувати компаси"; enabled: !!root.sensorComponent; onClicked: root.calibrate() }
                         }
                     }
                 }
