@@ -1,0 +1,103 @@
+diff --git a/src/AutoPilotPlugins/PX4/SensorsSetup.qml b/src/AutoPilotPlugins/PX4/SensorsSetup.qml
+--- a/src/AutoPilotPlugins/PX4/SensorsSetup.qml
++++ b/src/AutoPilotPlugins/PX4/SensorsSetup.qml
+@@ -73,6 +73,36 @@ Item {
+     property bool showCompass1Rot: cal_mag1_id.value > 0 && cal_mag1_rot.value >= 0
+     property bool showCompass2Rot: cal_mag2_id.value > 0 && cal_mag2_rot.value >= 0
+ 
++    function compassTypeText(index) {
++        var idFactName = _calMagIdParamFormat.replace("#", index)
++        var rotFactName = _calMagRotParamFormat.replace("#", index)
++
++        if (!controller.parameterExists(-1, idFactName)) {
++            return ""
++        }
++
++        var idFact = controller.getParameterFact(-1, idFactName)
++        if (idFact.value <= 0) {
++            return ""
++        }
++
++        if (controller.parameterExists(-1, rotFactName)) {
++            var rotFact = controller.getParameterFact(-1, rotFactName)
++            return rotFact.value < 0 ? qsTr("Internal") : qsTr("External")
++        }
++
++        return qsTr("Connected")
++    }
++
++    function compassOrientationText(index) {
++        var rotFactName = _calMagRotParamFormat.replace("#", index)
++        if (!controller.parameterExists(-1, rotFactName)) {
++            return qsTr("Unknown")
++        }
++        var rotFact = controller.getParameterFact(-1, rotFactName)
++        return rotFact.value < 0 ? qsTr("Fixed / internal") : rotFact.enumStringValue
++    }
++
+     property bool   _sensorsHaveFixedOrientation:       QGroundControl.corePlugin.options.sensorsHaveFixedOrientation
+     property bool   _wifiReliableForCalibration:        QGroundControl.corePlugin.options.wifiReliableForCalibration
+     property int    _buttonWidth:                       ScreenTools.defaultFontPixelWidth * 15
+@@ -356,6 +386,59 @@ Item {
+                 }
+             }
+ 
++            Rectangle {
++                id:             compassInfoPanel
++                width:          _buttonWidth
++                visible:        compassButton.visible && !controller.calibrationActive
++                radius:         ScreenTools.defaultFontPixelWidth / 2
++                color:          qgcPal.windowShade
++                border.width:   1
++                border.color:   qgcPal.text
++                height:         compassInfoColumn.implicitHeight + ScreenTools.defaultFontPixelHeight
++
++                Column {
++                    id:             compassInfoColumn
++                    anchors.left:   parent.left
++                    anchors.right:  parent.right
++                    anchors.margins: ScreenTools.defaultFontPixelWidth / 2
++                    anchors.verticalCenter: parent.verticalCenter
++                    spacing:        ScreenTools.defaultFontPixelHeight / 4
++
++                    QGCLabel {
++                        width:      parent.width
++                        text:       qsTr("Connected compasses")
++                        font.bold:  true
++                        wrapMode:   Text.WordWrap
++                    }
++
++                    Repeater {
++                        model: currentMagParamCount()
++
++                        Column {
++                            width: parent.width
++                            visible: compassIdFact.value > 0
++
++                            property Fact compassIdFact: controller.getParameterFact(-1, _calMagIdParamFormat.replace("#", index))
++
++                            QGCLabel {
++                                width:      parent.width
++                                text:       qsTr("Compass %1").arg(index + 1)
++                                font.bold:  true
++                            }
++
++                            QGCLabel {
++                                width:      parent.width
++                                text:       qsTr("%1 · ID: %2").arg(compassTypeText(index)).arg(compassIdFact.value)
++                                wrapMode:   Text.WordWrap
++                            }
++
++                            QGCLabel {
++                                width:      parent.width
++                                text:       qsTr("Orientation: %1").arg(compassOrientationText(index))
++                                wrapMode:   Text.WordWrap
++                            }
++                        }
++                    }
++                }
++            }
++
+             IndicatorButton {
+                 id:             gyroButton
+                 width:          _buttonWidth
