@@ -71,6 +71,10 @@ Rectangle {
         currentPage = "sensors"
     }
 
+    function showCompasses() {
+        currentPage = "compasses"
+    }
+
     function showServoSafety() {
         currentPage = "servoSafety"
     }
@@ -113,6 +117,9 @@ Rectangle {
         if (currentPage === "sensors") {
             return sensorComponent ? sensorComponent.setupSource : ""
         }
+        if (currentPage === "compasses") {
+            return parametersReady ? "qrc:/qml/QGroundControl/Custom/ServiceCompasses.qml" : ""
+        }
         if (currentPage === "servoSafety") {
             return parametersReady ? "qrc:/qml/QGroundControl/Custom/ServiceServoSafety.qml" : ""
         }
@@ -136,6 +143,9 @@ Rectangle {
             return activeVehicle
                     ? "Для цього борту не знайдено сторінку налаштування датчиків."
                     : "Підключіть борт, щоб відкрити налаштування датчиків."
+        }
+        if (currentPage === "compasses") {
+            return "Підключіть борт і дочекайтеся завантаження параметрів компасів."
         }
         if (currentPage === "servoSafety") {
             return "Підключіть борт і дочекайтеся завантаження параметрів."
@@ -167,14 +177,6 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: ScreenTools.defaultFontPixelWidth
                 spacing: ScreenTools.defaultFontPixelHeight / 2
-
-                QGCLabel {
-                    Layout.fillWidth: true
-                    text: "Спрощ. режим для сервісу"
-                    font.pointSize: ScreenTools.mediumFontPointSize
-                    font.bold: true
-                    wrapMode: Text.WordWrap
-                }
 
                 QGCLabel {
                     Layout.fillWidth: true
@@ -222,6 +224,14 @@ Rectangle {
 
                 QGCButton {
                     Layout.fillWidth: true
+                    text: "Компаси"
+                    checked: currentPage === "compasses"
+                    enabled: parametersReady
+                    onClicked: showCompasses()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
                     text: "Servo/Saf.Mask"
                     checked: currentPage === "servoSafety"
                     enabled: parametersReady && activeVehicle && activeVehicle.apmFirmware
@@ -246,7 +256,7 @@ Rectangle {
                 QGCButton {
                     Layout.fillWidth: true
                     text: "Реконнект"
-                    enabled: !!activeVehicle
+                    enabled: true
                     onClicked: reconnectVehicle()
                 }
 
@@ -254,13 +264,6 @@ Rectangle {
                     Layout.fillHeight: true
                 }
 
-                QGCLabel {
-                    Layout.fillWidth: true
-                    text: "Сервісний режим: огляд, карта, прошивка, параметри, MP Params, датчики, Servo/Saf.Mask, MAVLink Status та перезавантаження борту."
-                    wrapMode: Text.WordWrap
-                    font.pointSize: ScreenTools.smallFontPointSize
-                    color: qgcPal.text
-                }
             }
         }
 
