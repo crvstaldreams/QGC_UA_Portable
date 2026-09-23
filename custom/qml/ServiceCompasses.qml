@@ -7,6 +7,7 @@ import QGroundControl.Controllers
 import QGroundControl.FactSystem
 import QGroundControl.Palette
 import QGroundControl.ScreenTools
+import QGroundControl.Custom 1.0
 
 Item {
     id: root
@@ -19,6 +20,7 @@ Item {
 
     QGCPalette { id: qgcPal; colorGroupEnabled: true }
     FactPanelController { id: controller }
+    CompassTelemetryController { id: compassTelemetry; vehicle: root.activeVehicle }
 
     function exists(name) { return controller.parameterExists(-1, name) }
     function fact(name) { return exists(name) ? controller.getParameterFact(-1, name, false) : null }
@@ -42,7 +44,16 @@ Item {
         if (label.indexOf("YAW_45") >= 0) return 45
         return 0
     }
-    function compassVisualAngle(i) { return orientationYaw(i) }
+    function rawHeading(i) {
+        if (i === 0 && compassTelemetry.valid1) return compassTelemetry.heading1
+        if (i === 1 && compassTelemetry.valid2) return compassTelemetry.heading2
+        if (i === 2 && compassTelemetry.valid3) return compassTelemetry.heading3
+        return NaN
+    }
+    function compassVisualAngle(i) {
+        const h=rawHeading(i)
+        return isNaN(h) ? orientationYaw(i) : h
+    }
     function setOrientation(i, value) { const f=fact(rotName(i)); if (f) f.rawValue=value }
     function calibrate() {
         if (activeVehicle) activeVehicle.sendCommand(1, preflightCalibrationCommand, true, 0, 1, 0, 0, 0, 0, 0)
@@ -148,7 +159,7 @@ Item {
                                         ctx.fillStyle="#ef3123"; ctx.fill(); ctx.strokeStyle="#ffffff"; ctx.lineWidth=1.5; ctx.stroke()
                                     }
                                 }
-                                QGCLabel { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: ScreenTools.defaultFontPixelHeight; text: root.compassVisualAngle(index) + "°"; font.bold:true }
+                                QGCLabel { anchors.horizontalCenter: parent.horizontalCenter; anchors.bottom: parent.bottom; anchors.bottomMargin: ScreenTools.defaultFontPixelHeight; text: isNaN(root.rawHeading(index)) ? ("орієнт. " + root.compassVisualAngle(index) + "°") : (Math.round(root.rawHeading(index)) + "° RAW MAG"); font.bold:true }
                             }
 
                             QGCComboBox {
@@ -189,7 +200,7 @@ Item {
                 QGCLabel {
                     id: info; anchors.fill: parent; anchors.margins: ScreenTools.defaultFontPixelWidth
                     wrapMode: Text.WordWrap
-                    text: "Внутрішній компас знаходиться на польотному контролері. Зовнішні компаси можуть бути підключені через GPS/MAG модулі. Кожна картка прив'язана до власного набору параметрів компаса. Круговий індикатор показує індивідуальну орієнтацію встановлення цього компаса, а не спільний курс борту. Device ID, тип, стан та орієнтація читаються окремо для кожного компаса."
+                    text: "Внутрішній компас знаходиться на польотному контролері. Зовнішні компаси можуть бути підключені через GPS/MAG модулі. Кожна картка прив'язана до власного компаса. Індикатори використовують окремі MAVLink магнітометричні потоки RAW_IMU, SCALED_IMU2 та SCALED_IMU3. Якщо прошивка не передає RAW MAG для конкретного сенсора, картка явно переходить на його параметр орієнтації."
                 }
             }
         }
