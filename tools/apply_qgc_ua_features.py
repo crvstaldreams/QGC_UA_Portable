@@ -891,6 +891,223 @@ def patch_service_firmware_page(root: Path) -> Path:
     path.write_text(text, encoding="utf-8", newline="\n")
     return path
 
+
+def patch_compass_interaction(root: Path) -> list[Path]:
+    """Add firmware-aware compass status/interaction to both PX4 and ArduPilot."""
+    changed: list[Path] = []
+
+    # PX4: CAL_MAGx_ID/CAL_MAGx_ROT are the authoritative QGC-facing facts.
+    px4 = root / "src" / "AutoPilotPlugins" / "PX4" / "SensorsSetup.qml"
+    text = px4.read_text(encoding="utf-8")
+    anchor = '''    property bool   _sensorsHaveFixedOrientation:       QGroundControl.corePlugin.options.sensorsHaveFixedOrientation
+'''
+    helper = '''    function compassTypeText(index) {
+        const idName = _calMagIdParamFormat.replace("#", index)
+        const rotName = _calMagRotParamFormat.replace("#", index)
+        if (!controller.parameterExists(-1, idName)) {
+            return ""
+        }
+        const idFact = controller.getParameterFact(-1, idName)
+        if (idFact.value <= 0) {
+            return ""
+        }
+        if (!controller.parameterExists(-1, rotName)) {
+            return qsTr("Connected")
+        }
+        return controller.getParameterFact(-1, rotName).value < 0 ? qsTr("Internal") : qsTr("External")
+    }
+
+    function compassOrientationText(index) {
+        const rotName = _calMagRotParamFormat.replace("#", index)
+        if (!controller.parameterExists(-1, rotName)) {
+            return qsTr("Unknown")
+        }
+        const rotFact = controller.getParameterFact(-1, rotName)
+        return rotFact.value < 0 ? qsTr("Fixed / internal") : rotFact.enumStringValue
+    }
+
+'''
+    if "function compassTypeText(index)" not in text:
+        text = replace_once(text, anchor, helper + anchor, "PX4 compass facts helper")
+
+    anchor = '''            IndicatorButton {
+                id:             gyroButton
+'''
+    panel = '''            Rectangle {
+                width:          _buttonWidth
+                visible:        compassButton.visible && !controller.calibrationActive
+                radius:         ScreenTools.defaultFontPixelWidth / 2
+                color:          qgcPal.windowShade
+                border.width:   1
+                border.color:   qgcPal.text
+                height:         px4CompassInfo.implicitHeight + ScreenTools.defaultFontPixelHeight
+
+                Column {
+                    id:             px4CompassInfo
+                    anchors.left:   parent.left
+                    anchors.right:  parent.right
+                    anchors.margins: ScreenTools.defaultFontPixelWidth / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing:        ScreenTools.defaultFontPixelHeight / 4
+
+                    QGCLabel {
+                        width: parent.width
+                        text: qsTr("PX4 compasses")
+                        font.bold: true
+                    }
+
+                    Repeater {
+                        model: currentMagParamCount()
+                        Column {
+                            width: parent.width
+                            visible: px4CompassId.value > 0
+                            property Fact px4CompassId: controller.getParameterFact(-1, _calMagIdParamFormat.replace("#", index))
+
+                            QGCLabel {
+                                width: parent.width
+                                text: qsTr("Compass %1: %2").arg(index + 1).arg(compassTypeText(index))
+                                font.bold: true
+                            }
+                            QGCLabel {
+                                width: parent.width
+                                text: qsTr("ID: %1").arg(px4CompassId.value)
+                                wrapMode: Text.WordWrap
+                            }
+                            QGCLabel {
+                                width: parent.width
+                                text: qsTr("Orientation: %1").arg(compassOrientationText(index))
+                                wrapMode: Text.WordWrap
+                            }
+                        }
+                    }
+
+                    QGCButton {
+                        width: parent.width
+                        text: qsTr("Compass settings")
+                        onClicked: {
+                            setOrientationsDialogShowBoardOrientation = false
+                            setOrientationsDialogComponent.createObject(mainWindow, { title: qsTr("Set Orientations"), showRebootVehicleButton: false }).open()
+                        }
+                    }
+                }
+            }
+
+'''
+    if 'text: qsTr("PX4 compasses")' not in text:
+        text = replace_once(text, anchor, panel + anchor, "PX4 compass interaction panel")
+    px4.write_text(text, encoding="utf-8", newline="\n")
+    changed.append(px4)
+
+    # ArduPilot: reuse APMSensorParams, which already normalizes COMPASS_DEV_ID,
+    # COMPASS_EXTERNAL/EXTERN2/3, COMPASS_USE/2/3, COMPASS_ORIENT/2/3 and primary.
+    apm = root / "src" / "AutoPilotPlugins" / "APM" / "APMSensorsComponent.qml"
+    text = apm.read_text(encoding="utf-8")
+    anchor = '''            APMSensorsComponentController {
+'''
+    helper = '''            function apmCompassStateText(index) {
+                if (!sensorParams.rgCompassAvailable[index]) {
+                    return qsTr("Not connected")
+                }
+                const role = sensorParams.rgCompassExternal[index] ? qsTr("External") : qsTr("Internal")
+                const enabled = sensorParams.rgCompassUseFact[index].value ? qsTr("enabled") : qsTr("disabled")
+                return role + " · " + enabled
+            }
+
+            function apmCompassOrientationText(index) {
+                if (!sensorParams.rgCompassRotParamAvailable[index]) {
+                    return qsTr("Unknown")
+                }
+                return sensorParams.rgCompassRotFact[index].enumStringValue
+            }
+
+'''
+    if "function apmCompassStateText(index)" not in text:
+        text = replace_once(text, anchor, helper + anchor, "ArduPilot compass facts helper")
+
+    # Add the status block immediately after APMSensorParams so it is available on
+    # the normal Sensors page without replacing ArduPilot's native calibration.
+    anchor = '''            APMSensorsComponentController {
+'''
+    panel = '''            Rectangle {
+                id:             apmCompassInfoPanel
+                width:          _buttonWidth
+                visible:        !controller.calibrationActive
+                radius:         ScreenTools.defaultFontPixelWidth / 2
+                color:          qgcPal.windowShade
+                border.width:   1
+                border.color:   qgcPal.text
+                height:         apmCompassInfo.implicitHeight + ScreenTools.defaultFontPixelHeight
+
+                Column {
+                    id:             apmCompassInfo
+                    anchors.left:   parent.left
+                    anchors.right:  parent.right
+                    anchors.margins: ScreenTools.defaultFontPixelWidth / 2
+                    anchors.verticalCenter: parent.verticalCenter
+                    spacing:        ScreenTools.defaultFontPixelHeight / 4
+
+                    QGCLabel {
+                        width: parent.width
+                        text: qsTr("ArduPilot compasses")
+                        font.bold: true
+                    }
+
+                    Repeater {
+                        model: 3
+                        Column {
+                            width: parent.width
+                            visible: sensorParams.rgCompassAvailable[index]
+
+                            QGCLabel {
+                                width: parent.width
+                                text: compassLabel(index)
+                                font.bold: true
+                            }
+                            QGCLabel {
+                                width: parent.width
+                                text: apmCompassStateText(index)
+                                wrapMode: Text.WordWrap
+                            }
+                            QGCLabel {
+                                width: parent.width
+                                text: qsTr("ID: %1").arg(sensorParams.rgCompassId[index].value)
+                                wrapMode: Text.WordWrap
+                            }
+                            QGCLabel {
+                                width: parent.width
+                                text: qsTr("Orientation: %1").arg(apmCompassOrientationText(index))
+                                wrapMode: Text.WordWrap
+                            }
+                            QGCCheckBox {
+                                visible: sensorParams.rgCompassUseParamAvailable[index]
+                                text: qsTr("Use compass")
+                                checked: sensorParams.rgCompassUseFact[index].value
+                                onClicked: sensorParams.rgCompassUseFact[index].value = checked ? 1 : 0
+                            }
+                        }
+                    }
+
+                    QGCButton {
+                        width: parent.width
+                        text: qsTr("Sensor settings")
+                        onClicked: showOrientationsDialog(_calTypeSet)
+                    }
+                    QGCButton {
+                        width: parent.width
+                        text: qsTr("Calibrate compasses")
+                        onClicked: showOrientationsDialog(_calTypeCompass)
+                    }
+                }
+            }
+
+'''
+    if 'text: qsTr("ArduPilot compasses")' not in text:
+        text = replace_once(text, anchor, panel + anchor, "ArduPilot compass interaction panel")
+    apm.write_text(text, encoding="utf-8", newline="\n")
+    changed.append(apm)
+    return changed
+
+
 def patch_splash(root: Path) -> Path:
     path = root / "src" / "main.cc"
     text = path.read_text(encoding="utf-8")
@@ -999,6 +1216,7 @@ def main() -> int:
         changed.append(patch_service_mode_menu(root))
         changed.extend(patch_quick_vehicle_toolbar(root))
         changed.append(patch_service_firmware_page(root))
+        changed.extend(patch_compass_interaction(root))
         changed.append(patch_splash(root))
         verify_markers(changed)
     except (FeaturePatchError, OSError) as exc:
