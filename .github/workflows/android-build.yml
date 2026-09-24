@@ -93,6 +93,7 @@ jobs:
             -DQT_ANDROID_BUILD_ALL_ABIS=OFF \
             -DQGC_STABLE_BUILD=ON \
             -DQT_ANDROID_SIGN_APK=OFF \
+            -DQGC_UA_LICENSE_DIR="$GITHUB_WORKSPACE/qgroundcontrol/custom/licenses/third-party" \
             -DQT_DEBUG_FIND_PACKAGE=ON
 
       - name: Build Android APK
