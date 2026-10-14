@@ -934,10 +934,44 @@ def patch_application_restart(root: Path) -> list[Path]:
 {
     const QString executable = QCoreApplication::applicationFilePath();
     const QStringList arguments = QCoreApplication::arguments().mid(1);
+#ifdef Q_OS_WIN
+    // Wait for the previous process to release RunGuard before relaunching.
+    // An independent PowerShell helper survives the QGC process shutdown.
+    const auto psQuote = [](QString value) {
+        value.replace(QLatin1Char('\''), QStringLiteral("''"));
+        return QStringLiteral("'") + value + QStringLiteral("'");
+    };
+    QStringList quotedArguments;
+    for (const QString &argument : arguments) {
+        quotedArguments << psQuote(argument);
+    }
+    const QString script = QStringLiteral(
+        "Wait-Process -Id %1 -ErrorAction SilentlyContinue; "
+        "Start-Sleep -Milliseconds 800; "
+        "Start-Process -FilePath %2 -WorkingDirectory %3%4")
+        .arg(QCoreApplication::applicationPid())
+        .arg(psQuote(executable))
+        .arg(psQuote(QCoreApplication::applicationDirPath()))
+        .arg(quotedArguments.isEmpty()
+             ? QString()
+             : QStringLiteral(" -ArgumentList @(") + quotedArguments.join(QStringLiteral(",")) + QStringLiteral(")"));
+    const QString encoded = QString::fromLatin1(
+        QByteArray(reinterpret_cast<const char16_t *>(script.utf16()),
+                   script.size() * sizeof(char16_t)).toBase64());
+    if (!QProcess::startDetached(QStringLiteral("powershell.exe"),
+                                 {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"),
+                                  QStringLiteral("-WindowStyle"), QStringLiteral("Hidden"),
+                                  QStringLiteral("-EncodedCommand"), encoded},
+                                 QCoreApplication::applicationDirPath())) {
+        qgcApp()->showAppMessage(tr("Unable to restart QGroundControl."));
+        return false;
+    }
+#else
     if (!QProcess::startDetached(executable, arguments, QCoreApplication::applicationDirPath())) {
         qgcApp()->showAppMessage(tr("Unable to restart QGroundControl."));
         return false;
     }
+#endif
     QTimer::singleShot(0, qgcApp(), []() { qgcApp()->quit(); });
     return true;
 }
