@@ -209,8 +209,10 @@ try {
     if (-not (Select-String -Path $flyToolbarQml -Pattern 'quickVehicleSetupRow' -Quiet)) {
         throw "Vehicle Setup quick toolbar marker not found"
     }
-    if (-not (Select-String -Path $mainWindow.FullName -Pattern 'restartActiveConnections' -Quiet)) {
-        throw "Permanent reconnect helper marker not found"
+    foreach ($restartMarker in @('function rebootConnectedVehicle\(', 'vehicle\.rebootVehicle\(\)', 'function restartGroundControlApplication\(', 'QGroundControl\.restartApplication\(\)')) {
+        if (-not (Select-String -Path $mainWindow.FullName -Pattern $restartMarker -Quiet)) {
+            throw "Vehicle/application restart helper marker not found: $restartMarker"
+        }
     }
 
     if (-not (Test-Path $serviceParamsQml -PathType Leaf)) {
