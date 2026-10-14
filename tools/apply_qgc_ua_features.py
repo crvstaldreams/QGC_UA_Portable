@@ -859,6 +859,20 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
 
 
 
+def patch_libevents_compat(root: Path) -> Path:
+    """Pin libevents to a version compatible with QGC v5.0.8 MAVLink headers."""
+    path = root / "src" / "MAVLink" / "LibEvents" / "CMakeLists.txt"
+    text = path.read_text(encoding="utf-8")
+    text = replace_once(
+        text,
+        "    GIT_TAG main",
+        "    GIT_TAG 9ef591c447fe0386d698bf6fb9a6d27e43988ee4",
+        "libevents compatible pinned revision",
+    )
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return path
+
+
 def patch_application_restart(root: Path) -> list[Path]:
     """Expose native relaunch through the existing QGroundControl QML singleton."""
     header = root / "src" / "QmlControls" / "QGroundControlQmlGlobal.h"
@@ -1032,6 +1046,7 @@ def main() -> int:
             ("service_mode_menu", patch_service_mode_menu),
             ("quick_vehicle_toolbar", patch_quick_vehicle_toolbar),
             ("application_restart", patch_application_restart),
+            ("libevents_compat", patch_libevents_compat),
             ("service_firmware_page", patch_service_firmware_page),
             ("splash", patch_splash),
         ]
