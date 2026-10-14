@@ -12,6 +12,13 @@ Rectangle {
     color: qgcPal.window
 
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
+
+    // Trigger only when the service page is created; never loop on telemetry updates.
+    Component.onCompleted: {
+        if (activeVehicle && !activeVehicle.armed) {
+            activeVehicle.playServiceEntryTune()
+        }
+    }
     property string currentPage: "summary"
     property bool parametersReady: QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable &&
                                    activeVehicle &&
