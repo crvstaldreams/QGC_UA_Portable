@@ -2,15 +2,6 @@ name: Build QGroundControl UA for Android
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ main, master ]
-    paths:
-      - '.github/workflows/android-build.yml'
-      - 'scripts/**'
-      - 'tools/**'
-      - 'patches/**'
-      - 'custom/**'
-      - 'translations/**'
 
 concurrency:
   group: qgc-ua-android-${{ github.ref }}
