@@ -90,19 +90,31 @@ jobs:
           echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/26.1.10909125" >> "$GITHUB_ENV"
 
       - name: Configure Android Release
+        shell: bash
         run: |
-          cmake -S qgroundcontrol -B build-android -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_TOOLCHAIN_FILE="$QT_ANDROID_PATH/lib/cmake/Qt6/qt.toolchain.cmake" \
-            -DANDROID_NDK="$ANDROID_NDK_ROOT" \
-            -DCMAKE_ANDROID_NDK="$ANDROID_NDK_ROOT" \
-            -DQT_HOST_PATH="$QT_HOST_PATH" \
-            -DQT_ANDROID_ABIS="${QT_ANDROID_ABIS}" \
-            -DQT_ANDROID_BUILD_ALL_ABIS=OFF \
-            -DQGC_STABLE_BUILD=ON \
-            -DQT_ANDROID_SIGN_APK=OFF \
-            -DQGC_UA_LICENSE_DIR="$GITHUB_WORKSPACE/qgroundcontrol/custom/licenses/third-party" \
-            -DQT_DEBUG_FIND_PACKAGE=ON
+          for attempt in 1 2 3 4; do
+            if cmake -S qgroundcontrol -B build-android -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_TOOLCHAIN_FILE="$QT_ANDROID_PATH/lib/cmake/Qt6/qt.toolchain.cmake" \
+              -DANDROID_NDK="$ANDROID_NDK_ROOT" \
+              -DCMAKE_ANDROID_NDK="$ANDROID_NDK_ROOT" \
+              -DQT_HOST_PATH="$QT_HOST_PATH" \
+              -DQT_ANDROID_ABIS="${QT_ANDROID_ABIS}" \
+              -DQT_ANDROID_BUILD_ALL_ABIS=OFF \
+              -DQGC_STABLE_BUILD=ON \
+              -DQT_ANDROID_SIGN_APK=OFF \
+              -DQGC_UA_LICENSE_DIR="$GITHUB_WORKSPACE/qgroundcontrol/custom/licenses/third-party" \
+              -DQT_DEBUG_FIND_PACKAGE=ON; then
+                exit 0
+            fi
+            if [ "$attempt" -eq 4 ]; then
+              echo "::error::Android configure failed after four attempts"
+              exit 1
+            fi
+            echo "::warning::Android configure failed on attempt $attempt; retrying in $((attempt * 45)) seconds"
+            rm -rf build-android/_deps/gstreamer-subbuild build-android/_deps/gstreamer-src
+            sleep $((attempt * 45))
+          done
 
       - name: Build Android APK
         run: cmake --build build-android --target all --config Release
