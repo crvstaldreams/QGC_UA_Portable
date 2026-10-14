@@ -859,6 +859,43 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
 
 
 
+def patch_service_entry_tune(root: Path) -> list[Path]:
+    """One short MAVLink PLAY_TUNE message when entering service mode."""
+    header = root / "src" / "Vehicle" / "Vehicle.h"
+    source = root / "src" / "Vehicle" / "Vehicle.cc"
+    h = header.read_text(encoding="utf-8")
+    h = replace_once(h, "    Q_INVOKABLE void rebootVehicle();",
+                     "    Q_INVOKABLE void rebootVehicle();\n    Q_INVOKABLE void playServiceEntryTune();",
+                     "service entry tune API")
+    header.write_text(h, encoding="utf-8", newline="\n")
+    s = source.read_text(encoding="utf-8")
+    marker = "void Vehicle::rebootVehicle()\n{"
+    method = """void Vehicle::playServiceEntryTune()
+{
+    // MAVLink PLAY_TUNE uses the on-board buzzer; unsupported boards ignore it.
+    const SharedLinkInterfacePtr link = vehicleLinkManager()->primaryLink().lock();
+    if (!link || armed()) {
+        return;
+    }
+    mavlink_message_t message{};
+    // Short recognisable opening motif, represented using MAVLink tune syntax.
+    const char tune[] = "MFT190L8O4D D >D <A G F D F G";
+    mavlink_msg_play_tune_pack(
+        static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
+        static_cast<uint8_t>(MAVLinkProtocol::getComponentId()),
+        &message,
+        static_cast<uint8_t>(_id),
+        static_cast<uint8_t>(_defaultComponentId),
+        tune, "");
+    sendMessageOnLinkThreadSafe(link.get(), message);
+}
+
+"""
+    s = replace_once(s, marker, method + marker, "vehicle MAVLink play tune")
+    source.write_text(s, encoding="utf-8", newline="\n")
+    return [header, source]
+
+
 def patch_libevents_compat(root: Path) -> Path:
     """Pin libevents to a version compatible with QGC v5.0.8 MAVLink headers."""
     path = root / "src" / "MAVLink" / "LibEvents" / "CMakeLists.txt"
@@ -1047,6 +1084,7 @@ def main() -> int:
             ("quick_vehicle_toolbar", patch_quick_vehicle_toolbar),
             ("application_restart", patch_application_restart),
             ("libevents_compat", patch_libevents_compat),
+            ("service_entry_tune", patch_service_entry_tune),
             ("service_firmware_page", patch_service_firmware_page),
             ("splash", patch_splash),
         ]
