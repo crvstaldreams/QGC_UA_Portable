@@ -733,48 +733,15 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
         toolDrawerLoader.item.showVehicleComponentPanel(vehicleComponent)
     }
 
-    property var _reconnectLinkConfigs: []
-    property int _reconnectAttempts: 0
-
-    function restartActiveConnections() {
-        const configs = QGroundControl.linkManager.linkConfigurations
-        const pending = []
-        for (let i = 0; i < configs.count; i++) {
-            const config = configs.get(i)
-            if (config && config.link) {
-                pending.push(config)
-                config.link.disconnect()
-            }
-        }
-        _reconnectLinkConfigs = pending
-        _reconnectAttempts = 0
-        if (pending.length > 0) {
-            reconnectLinksTimer.restart()
+    function rebootConnectedVehicle() {
+        const vehicle = QGroundControl.multiVehicleManager.activeVehicle
+        if (vehicle && !vehicle.armed) {
+            vehicle.rebootVehicle()
         }
     }
 
-    Timer {
-        id: reconnectLinksTimer
-        interval: 500
-        repeat: false
-        onTriggered: {
-            const waiting = []
-            const pending = mainWindow._reconnectLinkConfigs
-            for (let i = 0; i < pending.length; i++) {
-                const config = pending[i]
-                if (!config) continue
-                if (config.link) {
-                    waiting.push(config)
-                } else {
-                    QGroundControl.linkManager.createConnectedLink(config)
-                }
-            }
-            mainWindow._reconnectAttempts++
-            mainWindow._reconnectLinkConfigs = waiting
-            if (waiting.length > 0 && mainWindow._reconnectAttempts < 12) {
-                reconnectLinksTimer.restart()
-            }
-        }
+    function restartGroundControlApplication() {
+        QGroundControl.restartApplication()
     }
 '''
     text = replace_once(text, parameter_helper, helper_block, "vehicle setup quick-navigation helpers")
@@ -865,9 +832,17 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
                 height: parent.height
                 enabled: !!_activeVehicle
                 icon.source: "/InstrumentValueIcons/reload.svg"
-                onClicked: mainWindow.restartActiveConnections()
+                onClicked: mainWindow.rebootConnectedVehicle()
                 ToolTip.visible: hovered
-                ToolTip.text: "Перезавантажити з'єднання"
+                ToolTip.text: qsTr("Reboot Vehicle")
+            }
+
+            QGCToolBarButton {
+                height: parent.height
+                icon.source: "/qmlimages/Gears.svg"
+                onClicked: mainWindow.restartGroundControlApplication()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Restart QGroundControl")
             }
 
             FlyViewToolBarIndicators {
@@ -882,6 +857,44 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
 
     return [main_window, setup_view, toolbar]
 
+
+
+def patch_application_restart(root: Path) -> list[Path]:
+    """Expose native relaunch through the existing QGroundControl QML singleton."""
+    header = root / "src" / "QmlControls" / "QGroundControlQmlGlobal.h"
+    source = root / "src" / "QmlControls" / "QGroundControlQmlGlobal.cc"
+    h = header.read_text(encoding="utf-8")
+    h = replace_once(
+        h,
+        "    Q_INVOKABLE void    saveGlobalSetting       (const QString& key, const QString& value);",
+        "    Q_INVOKABLE bool restartApplication();\n    Q_INVOKABLE void    saveGlobalSetting       (const QString& key, const QString& value);",
+        "QML restart API",
+    )
+    header.write_text(h, encoding="utf-8", newline="\n")
+
+    s = source.read_text(encoding="utf-8")
+    s = replace_once(
+        s, '#include "QGCApplication.h"',
+        '#include <QtCore/QCoreApplication>\n#include <QtCore/QProcess>\n#include <QtCore/QTimer>\n#include "QGCApplication.h"',
+        "restart Qt includes",
+    )
+    anchor = "void QGroundControlQmlGlobal::saveGlobalSetting (const QString& key, const QString& value)"
+    implementation = """bool QGroundControlQmlGlobal::restartApplication()
+{
+    const QString executable = QCoreApplication::applicationFilePath();
+    const QStringList arguments = QCoreApplication::arguments().mid(1);
+    if (!QProcess::startDetached(executable, arguments, QCoreApplication::applicationDirPath())) {
+        qgcApp()->showAppMessage(tr("Unable to restart QGroundControl."));
+        return false;
+    }
+    QTimer::singleShot(0, qgcApp(), []() { qgcApp()->quit(); });
+    return true;
+}
+
+"""
+    s = replace_once(s, anchor, implementation + anchor, "native application relaunch")
+    source.write_text(s, encoding="utf-8", newline="\n")
+    return [header, source]
 
 
 def patch_service_firmware_page(root: Path) -> Path:
@@ -1018,6 +1031,7 @@ def main() -> int:
             ("centered_tool_menu", patch_centered_tool_menu),
             ("service_mode_menu", patch_service_mode_menu),
             ("quick_vehicle_toolbar", patch_quick_vehicle_toolbar),
+            ("application_restart", patch_application_restart),
             ("service_firmware_page", patch_service_firmware_page),
             ("splash", patch_splash),
         ]
