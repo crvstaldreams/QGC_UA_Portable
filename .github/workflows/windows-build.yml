@@ -74,7 +74,33 @@ jobs:
           .\vulkan-sdk.exe --root C:\VulkanSDK\latest --accept-licenses --default-answer --confirm-command install com.lunarg.vulkan.glm com.lunarg.vulkan.volk com.lunarg.vulkan.vma com.lunarg.vulkan.debug
           "VULKAN_SDK=C:\VulkanSDK\latest" | Out-File -FilePath $env:GITHUB_ENV -Append
 
-      - name: Install GStreamer
+      - name: Install GStreamer (attempt 1)
+        id: gst_first
+        continue-on-error: true
+        uses: blinemedical/setup-gstreamer@v1
+        with:
+          version: ${{ env.GST_VERSION }}
+
+      - name: Wait before GStreamer retry
+        if: steps.gst_first.outcome == 'failure'
+        shell: pwsh
+        run: Start-Sleep -Seconds 45
+
+      - name: Install GStreamer (attempt 2)
+        id: gst_second
+        if: steps.gst_first.outcome == 'failure'
+        continue-on-error: true
+        uses: blinemedical/setup-gstreamer@v1
+        with:
+          version: ${{ env.GST_VERSION }}
+
+      - name: Wait before final GStreamer retry
+        if: steps.gst_first.outcome == 'failure' && steps.gst_second.outcome == 'failure'
+        shell: pwsh
+        run: Start-Sleep -Seconds 90
+
+      - name: Install GStreamer (attempt 3)
+        if: steps.gst_first.outcome == 'failure' && steps.gst_second.outcome == 'failure'
         uses: blinemedical/setup-gstreamer@v1
         with:
           version: ${{ env.GST_VERSION }}
