@@ -938,7 +938,7 @@ def patch_application_restart(root: Path) -> list[Path]:
     // Wait for the previous process to release RunGuard before relaunching.
     // An independent PowerShell helper survives the QGC process shutdown.
     const auto psQuote = [](QString value) {
-        value.replace(QLatin1Char('\''), QStringLiteral("''"));
+        value.replace(QChar(0x27), QStringLiteral("''"));
         return QStringLiteral("'") + value + QStringLiteral("'");
     };
     QStringList quotedArguments;
