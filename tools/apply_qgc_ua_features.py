@@ -955,9 +955,9 @@ def patch_application_restart(root: Path) -> list[Path]:
         .arg(quotedArguments.isEmpty()
              ? QString()
              : QStringLiteral(" -ArgumentList @(") + quotedArguments.join(QStringLiteral(",")) + QStringLiteral(")"));
-    const QString encoded = QString::fromLatin1(
-        QByteArray(reinterpret_cast<const char16_t *>(script.utf16()),
-                   script.size() * sizeof(char16_t)).toBase64());
+    const QByteArray scriptUtf16(reinterpret_cast<const char *>(script.utf16()),
+                                   static_cast<qsizetype>(script.size()) * sizeof(char16_t));
+    const QString encoded = QString::fromLatin1(scriptUtf16.toBase64());
     if (!QProcess::startDetached(QStringLiteral("powershell.exe"),
                                  {QStringLiteral("-NoProfile"), QStringLiteral("-NonInteractive"),
                                   QStringLiteral("-WindowStyle"), QStringLiteral("Hidden"),
