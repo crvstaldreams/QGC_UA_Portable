@@ -878,8 +878,8 @@ def patch_service_entry_tune(root: Path) -> list[Path]:
         return;
     }
     mavlink_message_t message{};
-    // Short recognisable opening motif, represented using MAVLink tune syntax.
-    const char tune[] = "MFT190L8O4D D >D <A G F D F G";
+    // First 10 notes of supplied MIDI, preserving 230 BPM and dotted note length.
+    const char tune[] = "MFT230O4L8DD>D4<A4.G#4G4F4DFG";
     mavlink_msg_play_tune_pack(
         static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
         static_cast<uint8_t>(MAVLinkProtocol::getComponentId()),
