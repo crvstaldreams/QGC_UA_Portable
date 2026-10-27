@@ -94,6 +94,10 @@ Rectangle {
         currentPage = "mpParams"
     }
 
+    function showMeme() {
+        currentPage = "meme"
+    }
+
     function reconnectVehicle() {
         mainWindow.restartActiveConnections()
     }
@@ -135,6 +139,9 @@ Rectangle {
         }
         if (currentPage === "mpParams") {
             return "qrc:/qml/QGroundControl/Custom/ServiceMPParams.qml"
+        }
+        if (currentPage === "meme") {
+            return "qrc:/qml/QGroundControl/Custom/ServiceMeme.qml"
         }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
@@ -258,6 +265,13 @@ Rectangle {
                     text: "MP Params"
                     checked: currentPage === "mpParams"
                     onClicked: showMPParams()
+                }
+
+                QGCButton {
+                    Layout.fillWidth: true
+                    text: "Мемне"
+                    checked: currentPage === "meme"
+                    onClicked: showMeme()
                 }
 
                 QGCButton {
