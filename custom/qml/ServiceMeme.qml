@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Dialogs
 import QtQuick.Controls
 import QtQuick.Layouts
 import QGroundControl
@@ -10,10 +11,32 @@ Rectangle {
     color: pal.window
     property var vehicle: QGroundControl.multiVehicleManager.activeVehicle
     property real lengthSeconds: 158.609
+    property string trackName: "Undertale — Megalovania"
+    property string loadError: ""
     property bool playing: false
     property real positionSeconds: 0
 
     QGCPalette { id: pal; colorGroupEnabled: true }
+
+    FileDialog {
+        id: midiPicker
+        title: "Виберіть MIDI-файл"
+        nameFilters: ["MIDI (*.mid *.midi)", "Усі файли (*)"]
+        fileMode: FileDialog.OpenFile
+        onAccepted: {
+            if (!player.vehicle) return
+            player.loadError = ""
+            if (!player.vehicle.loadServiceMidi(selectedFile)) {
+                player.loadError = "Не вдалося прочитати MIDI (підтримуються SMF типу 0/1 без SMPTE)."
+                return
+            }
+            player.playing = false
+            player.positionSeconds = 0
+            player.lengthSeconds = player.vehicle.serviceMidiDurationSeconds()
+            player.trackName = decodeURIComponent(selectedFile.toString().split("/").pop())
+            timeline.value = 0
+        }
+    }
 
     function stop() {
         if (vehicle) vehicle.stopServiceMidi()
@@ -70,7 +93,7 @@ Rectangle {
             Layout.fillWidth: true
         }
         QGCLabel {
-            text: "Undertale — Megalovania (MIDI, одноголосна мелодія)"
+            text: player.trackName + " (MIDI, одноголосна мелодія)"
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
         }
@@ -84,6 +107,18 @@ Rectangle {
             wrapMode: Text.WordWrap
         }
 
+        QGCButton {
+            text: "Завантажити MIDI…"
+            enabled: !!vehicle && !vehicle.armed
+            onClicked: midiPicker.open()
+        }
+        QGCLabel {
+            visible: player.loadError.length > 0
+            text: player.loadError
+            color: pal.warningText
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+        }
         RowLayout {
             Layout.fillWidth: true
             QGCLabel { text: formatTime(timeline.pressed ? timeline.value : positionSeconds) }
@@ -139,6 +174,22 @@ Rectangle {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             text: "Бузер відтворює одну ноту за раз. Під час перемотки попереднє відтворення зупиняється; початок після перемотки відповідає вибраній позиції MIDI. Підтримка MAVLink PLAY_TUNE залежить від прошивки."
+        }
+        RowLayout {
+            Layout.fillWidth: true
+            QGCLabel { text: "Гучність бузера" }
+            Slider {
+                Layout.fillWidth: true
+                from: 0
+                to: 100
+                value: 100
+                enabled: false
+            }
+        }
+        QGCLabel {
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            text: "Регулювання гучності недоступне через MAVLink PLAY_TUNE: протокол не передає амплітуду звуку. Рівень залежить від обладнання та прошивки."
         }
         Item { Layout.fillHeight: true }
     }
