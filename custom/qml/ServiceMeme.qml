@@ -62,7 +62,7 @@ Rectangle {
     }
 
     Component.onDestruction: {
-        if (vehicle) vehicle.stopServiceMidi()
+        if (vehicle) { vehicle.stopServiceMidi(); vehicle.stopBuzzerSpeech() }
     }
     onVehicleChanged: {
         playing = false
@@ -190,6 +190,65 @@ Rectangle {
             Layout.fillWidth: true
             wrapMode: Text.WordWrap
             text: "Регулювання гучності недоступне через MAVLink PLAY_TUNE: протокол не передає амплітуду звуку. Рівень залежить від обладнання та прошивки."
+        }
+        Rectangle {
+            Layout.fillWidth: true
+            Layout.preferredHeight: speechLayout.implicitHeight + 28
+            radius: 8
+            color: pal.windowShade
+            ColumnLayout {
+                id: speechLayout
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 14
+                spacing: 8
+                QGCLabel {
+                    text: "Buzzer Speech — роботизовані звуки з тексту"
+                    font.bold: true
+                    Layout.fillWidth: true
+                }
+                TextArea {
+                    id: speechInput
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: 72
+                    placeholderText: "Введіть текст українською або англійською"
+                    wrapMode: TextEdit.Wrap
+                    text: "Вітаю, пілоте!"
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    QGCLabel { text: "Швидкість" }
+                    Slider { id: speechSpeed; Layout.fillWidth: true; from: 1; to: 10; stepSize: 1; value: 5 }
+                    QGCLabel { text: speechSpeed.value.toFixed(0) }
+                }
+                RowLayout {
+                    Layout.fillWidth: true
+                    QGCLabel { text: "Висота тону" }
+                    Slider { id: speechPitch; Layout.fillWidth: true; from: 2; to: 6; stepSize: 1; value: 4 }
+                    QGCLabel { text: speechPitch.value.toFixed(0) }
+                }
+                RowLayout {
+                    QGCButton {
+                        text: "Відтворити текст"
+                        enabled: !!vehicle && !vehicle.armed && speechInput.text.trim().length > 0
+                        onClicked: {
+                            player.pause()
+                            vehicle.playBuzzerSpeech(speechInput.text, speechSpeed.value, speechPitch.value)
+                        }
+                    }
+                    QGCButton {
+                        text: "Стоп"
+                        enabled: !!vehicle
+                        onClicked: vehicle.stopBuzzerSpeech()
+                    }
+                }
+                QGCLabel {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    text: "Звучатиме як ігрові сигнали; слова не будуть розбірливими. Гучність штатного бузера не регулюється."
+                }
+            }
         }
         Item { Layout.fillHeight: true }
     }
