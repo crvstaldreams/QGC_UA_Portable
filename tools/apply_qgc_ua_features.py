@@ -907,7 +907,9 @@ def patch_service_midi_player(root: Path) -> list[Path]:
     Q_INVOKABLE void seekServiceMidi(double seconds);
     Q_INVOKABLE void pauseServiceMidi();
     Q_INVOKABLE void stopServiceMidi();
-    Q_INVOKABLE double serviceMidiPositionSeconds() const;""",
+    Q_INVOKABLE double serviceMidiPositionSeconds() const;
+    Q_INVOKABLE bool loadServiceMidi(const QUrl &path);
+    Q_INVOKABLE double serviceMidiDurationSeconds() const;""",
         "service MIDI API")
     anchor = "    Q_INVOKABLE void playServiceEntryTune();"
     # Keep state attached to the vehicle, so a disconnected/removed vehicle
@@ -924,10 +926,13 @@ def patch_service_midi_player(root: Path) -> list[Path]:
     qint64 _serviceMidiPausedMs = 0;
     int _serviceMidiNextIndex = 0;
     bool _serviceMidiPlaying = false;
+    QByteArray _serviceMidiCustomScore;
+    double _serviceMidiDurationMs = 158608.7;
 """, "service MIDI fields")
     header.write_text(h, encoding="utf-8", newline="\n")
 
     s = source.read_text(encoding="utf-8")
+    s = replace_once(s, '#include "Vehicle.h"', '#include "Vehicle.h"\n#include "ServiceMidiParser.h"', "MIDI parser include")
     anchor = "void Vehicle::playServiceEntryTune()\n{"
     implementation = """namespace {
 struct ServiceMidiNote { quint16 tick; quint16 duration; quint8 pitch; };
@@ -954,17 +959,33 @@ static bool sendServiceMidiTune(Vehicle *vehicle, const QString &tune) {
 }
 }
 
+double Vehicle::serviceMidiDurationSeconds() const
+{
+    return _serviceMidiDurationMs / 1000.0;
+}
+
+bool Vehicle::loadServiceMidi(const QUrl &path)
+{
+    QByteArray loaded;
+    double length = 0.0;
+    if (!ServiceMidiParser::parse(path, loaded, length)) return false;
+    stopServiceMidi();
+    _serviceMidiCustomScore = loaded;
+    _serviceMidiDurationMs = length * 1000.0;
+    return true;
+}
+
 double Vehicle::serviceMidiPositionSeconds() const
 {
     qint64 ms = _serviceMidiPausedMs;
     if (_serviceMidiPlaying) ms = _serviceMidiStartMs + _serviceMidiClock.elapsed();
-    return qBound(0.0, ms / 1000.0, serviceMidiTotalMs / 1000.0);
+    return qBound(0.0, ms / 1000.0, _serviceMidiDurationMs / 1000.0);
 }
 
 void Vehicle::seekServiceMidi(double seconds)
 {
     pauseServiceMidi();
-    _serviceMidiPausedMs = qBound(qint64(0), qint64(seconds * 1000.0), qint64(serviceMidiTotalMs));
+    _serviceMidiPausedMs = qBound(qint64(0), qint64(seconds * 1000.0), qint64(_serviceMidiDurationMs));
 }
 
 void Vehicle::pauseServiceMidi()
@@ -988,11 +1009,11 @@ void Vehicle::playServiceMidi(double seconds)
 {
     if (armed() || !vehicleLinkManager()->primaryLink().lock()) return;
     pauseServiceMidi();
-    _serviceMidiStartMs = qBound(qint64(0), qint64(seconds * 1000.0), qint64(serviceMidiTotalMs));
+    _serviceMidiStartMs = qBound(qint64(0), qint64(seconds * 1000.0), qint64(_serviceMidiDurationMs));
     _serviceMidiPausedMs = _serviceMidiStartMs;
     _serviceMidiClock.restart();
     _serviceMidiNextIndex = 0;
-    const auto &score = serviceMidiScore();
+    const auto &score = _serviceMidiCustomScore.isEmpty() ? serviceMidiScore() : _serviceMidiCustomScore;
     const auto *raw = reinterpret_cast<const unsigned char *>(score.constData());
     const int count = score.size() / 5;
     while (_serviceMidiNextIndex < count) {
@@ -1009,7 +1030,7 @@ void Vehicle::playServiceMidi(double seconds)
                 stopServiceMidi();
                 return;
             }
-            const auto &score = serviceMidiScore();
+            const auto &score = _serviceMidiCustomScore.isEmpty() ? serviceMidiScore() : _serviceMidiCustomScore;
             const auto *raw = reinterpret_cast<const unsigned char *>(score.constData());
             const int count = score.size() / 5;
             const qint64 elapsed = _serviceMidiStartMs + _serviceMidiClock.elapsed();
@@ -1029,9 +1050,9 @@ void Vehicle::playServiceMidi(double seconds)
                 sendServiceMidiTune(this, tune);
                 ++_serviceMidiNextIndex;
             }
-            if (elapsed >= serviceMidiTotalMs || _serviceMidiNextIndex >= count) {
+            if (elapsed >= _serviceMidiDurationMs || _serviceMidiNextIndex >= count) {
                 _serviceMidiPlaying = false;
-                _serviceMidiPausedMs = qint64(serviceMidiTotalMs);
+                _serviceMidiPausedMs = qint64(_serviceMidiDurationMs);
                 _serviceMidiTimer->stop();
             }
         });
