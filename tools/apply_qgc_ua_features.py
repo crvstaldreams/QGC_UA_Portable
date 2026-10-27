@@ -896,6 +896,157 @@ def patch_service_entry_tune(root: Path) -> list[Path]:
     return [header, source]
 
 
+def patch_service_midi_player(root: Path) -> list[Path]:
+    """MIDI-derived buzzer playback: seek, pause, resume and stop."""
+    header = root / "src" / "Vehicle" / "Vehicle.h"
+    source = root / "src" / "Vehicle" / "Vehicle.cc"
+    h = header.read_text(encoding="utf-8")
+    h = replace_once(h, "    Q_INVOKABLE void playServiceEntryTune();",
+        """    Q_INVOKABLE void playServiceEntryTune();
+    Q_INVOKABLE void playServiceMidi(double seconds = 0);
+    Q_INVOKABLE void seekServiceMidi(double seconds);
+    Q_INVOKABLE void pauseServiceMidi();
+    Q_INVOKABLE void stopServiceMidi();
+    Q_INVOKABLE double serviceMidiPositionSeconds() const;""",
+        "service MIDI API")
+    anchor = "    Q_INVOKABLE void playServiceEntryTune();"
+    # Keep state attached to the vehicle, so a disconnected/removed vehicle
+    # destroys its playback timer automatically.
+    state_anchor = "    Q_INVOKABLE void playServiceEntryTune();"
+    # Inject private state immediately after the existing class-private marker,
+    # not after public methods; QTimer objects should never be copied.
+    private_marker = "private:\n"
+    h = replace_once(h, private_marker,
+        """private:
+    QTimer* _serviceMidiTimer = nullptr;
+    QElapsedTimer _serviceMidiClock;
+    qint64 _serviceMidiStartMs = 0;
+    qint64 _serviceMidiPausedMs = 0;
+    int _serviceMidiNextIndex = 0;
+    bool _serviceMidiPlaying = false;
+""", "service MIDI fields")
+    header.write_text(h, encoding="utf-8", newline="\n")
+
+    s = source.read_text(encoding="utf-8")
+    anchor = "void Vehicle::playServiceEntryTune()\n{"
+    implementation = """namespace {
+struct ServiceMidiNote { quint16 tick; quint16 duration; quint8 pitch; };
+const QByteArray &serviceMidiScore() {
+    static const QByteArray score = qUncompress(QByteArray::fromBase64(
+        QByteArrayLiteral("__SCORE__")));
+    return score;
+}
+constexpr double serviceMidiMsPerTick = 260870.0 / 96000.0; // 230 BPM, 96 PPQN
+constexpr double serviceMidiTotalMs = 158608.7;
+static bool sendServiceMidiTune(Vehicle *vehicle, const QString &tune) {
+    const auto link = vehicle->vehicleLinkManager()->primaryLink().lock();
+    if (!link) return false;
+    mavlink_message_t message{};
+    const QByteArray bytes = tune.toLatin1();
+    mavlink_msg_play_tune_pack(
+        static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
+        static_cast<uint8_t>(MAVLinkProtocol::getComponentId()),
+        &message,
+        static_cast<uint8_t>(vehicle->id()),
+        static_cast<uint8_t>(vehicle->defaultComponentId()),
+        bytes.constData(), "");
+    return vehicle->sendMessageOnLinkThreadSafe(link.get(), message);
+}
+}
+
+double Vehicle::serviceMidiPositionSeconds() const
+{
+    qint64 ms = _serviceMidiPausedMs;
+    if (_serviceMidiPlaying) ms = _serviceMidiStartMs + _serviceMidiClock.elapsed();
+    return qBound(0.0, ms / 1000.0, serviceMidiTotalMs / 1000.0);
+}
+
+void Vehicle::seekServiceMidi(double seconds)
+{
+    pauseServiceMidi();
+    _serviceMidiPausedMs = qBound(qint64(0), qint64(seconds * 1000.0), qint64(serviceMidiTotalMs));
+}
+
+void Vehicle::pauseServiceMidi()
+{
+    if (_serviceMidiPlaying) {
+        _serviceMidiPausedMs = qint64(serviceMidiPositionSeconds() * 1000.0);
+        _serviceMidiPlaying = false;
+        if (_serviceMidiTimer) _serviceMidiTimer->stop();
+        sendServiceMidiTune(this, QString()); // stop current buzzer sound
+    }
+}
+
+void Vehicle::stopServiceMidi()
+{
+    pauseServiceMidi();
+    _serviceMidiPausedMs = 0;
+    _serviceMidiNextIndex = 0;
+}
+
+void Vehicle::playServiceMidi(double seconds)
+{
+    if (armed() || !vehicleLinkManager()->primaryLink().lock()) return;
+    pauseServiceMidi();
+    _serviceMidiStartMs = qBound(qint64(0), qint64(seconds * 1000.0), qint64(serviceMidiTotalMs));
+    _serviceMidiPausedMs = _serviceMidiStartMs;
+    _serviceMidiClock.restart();
+    _serviceMidiNextIndex = 0;
+    const auto &score = serviceMidiScore();
+    const auto *raw = reinterpret_cast<const unsigned char *>(score.constData());
+    const int count = score.size() / 5;
+    while (_serviceMidiNextIndex < count) {
+        const int off = _serviceMidiNextIndex * 5;
+        const int tick = int(raw[off]) | (int(raw[off+1]) << 8);
+        if (tick * serviceMidiMsPerTick >= _serviceMidiStartMs) break;
+        ++_serviceMidiNextIndex;
+    }
+    if (!_serviceMidiTimer) {
+        _serviceMidiTimer = new QTimer(this);
+        _serviceMidiTimer->setInterval(15);
+        connect(_serviceMidiTimer, &QTimer::timeout, this, [this]() {
+            if (armed() || !vehicleLinkManager()->primaryLink().lock()) {
+                stopServiceMidi();
+                return;
+            }
+            const auto &score = serviceMidiScore();
+            const auto *raw = reinterpret_cast<const unsigned char *>(score.constData());
+            const int count = score.size() / 5;
+            const qint64 elapsed = _serviceMidiStartMs + _serviceMidiClock.elapsed();
+            while (_serviceMidiNextIndex < count) {
+                const int off = _serviceMidiNextIndex * 5;
+                const int tick = int(raw[off]) | (int(raw[off+1]) << 8);
+                if (tick * serviceMidiMsPerTick > elapsed) break;
+                const int duration = int(raw[off+2]) | (int(raw[off+3]) << 8);
+                const int midiNote = raw[off+4];
+                const QStringList names = { "C", "C#", "D", "D#", "E", "F",
+                                            "F#", "G", "G#", "A", "A#", "B" };
+                const int octave = midiNote / 12 - 1;
+                const int durationBase = duration >= 120 ? 4 : duration >= 70 ? 4 : duration >= 35 ? 8 : 16;
+                const QString dot = duration >= 120 ? "." : "";
+                const QString tune = QStringLiteral("MFT230O%1L%2%3%4")
+                    .arg(octave).arg(durationBase).arg(names[midiNote % 12]).arg(dot);
+                sendServiceMidiTune(this, tune);
+                ++_serviceMidiNextIndex;
+            }
+            if (elapsed >= serviceMidiTotalMs || _serviceMidiNextIndex >= count) {
+                _serviceMidiPlaying = false;
+                _serviceMidiPausedMs = qint64(serviceMidiTotalMs);
+                _serviceMidiTimer->stop();
+            }
+        });
+    }
+    _serviceMidiPlaying = true;
+    _serviceMidiTimer->start();
+}
+
+"""
+    implementation = implementation.replace("__SCORE__", "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")
+    s = replace_once(s, anchor, implementation + anchor, "MIDI sequencer implementation")
+    source.write_text(s, encoding="utf-8", newline="\n")
+    return [header, source]
+
+
 def patch_libevents_compat(root: Path) -> Path:
     """Pin libevents to a version compatible with QGC v5.0.8 MAVLink headers."""
     path = root / "src" / "MAVLink" / "LibEvents" / "CMakeLists.txt"
@@ -1119,6 +1270,7 @@ def main() -> int:
             ("application_restart", patch_application_restart),
             ("libevents_compat", patch_libevents_compat),
             ("service_entry_tune", patch_service_entry_tune),
+            ("service_midi_player", patch_service_midi_player),
             ("service_firmware_page", patch_service_firmware_page),
             ("splash", patch_splash),
         ]
