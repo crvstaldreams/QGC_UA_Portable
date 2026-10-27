@@ -896,6 +896,89 @@ def patch_service_entry_tune(root: Path) -> list[Path]:
     return [header, source]
 
 
+def patch_buzzer_speech(root: Path) -> list[Path]:
+    """Play short text-derived note patterns via the existing MAVLink buzzer link."""
+    header = root / "src" / "Vehicle" / "Vehicle.h"
+    source = root / "src" / "Vehicle" / "Vehicle.cc"
+    h = header.read_text(encoding="utf-8")
+    h = replace_once(h,
+        "    Q_INVOKABLE void playServiceEntryTune();",
+        """    Q_INVOKABLE void playServiceEntryTune();
+    Q_INVOKABLE void playBuzzerSpeech(const QString &text, int speed, int pitch);
+    Q_INVOKABLE void stopBuzzerSpeech();""", "buzzer speech API")
+    h = replace_once(h, "private:\n",
+        """private:
+    QTimer* _buzzerSpeechTimer = nullptr;
+    QString _buzzerSpeechText;
+    int _buzzerSpeechIndex = 0;
+    int _buzzerSpeechSpeed = 5;
+    int _buzzerSpeechPitch = 4;
+""", "buzzer speech state")
+    header.write_text(h, encoding="utf-8", newline="\n")
+    s = source.read_text(encoding="utf-8")
+    anchor = "void Vehicle::playServiceEntryTune()\n{"
+    impl = """void Vehicle::stopBuzzerSpeech()
+{
+    if (_buzzerSpeechTimer) _buzzerSpeechTimer->stop();
+    _buzzerSpeechText.clear();
+    _buzzerSpeechIndex = 0;
+    const auto link = vehicleLinkManager()->primaryLink().lock();
+    if (!link) return;
+    mavlink_message_t message{};
+    mavlink_msg_play_tune_pack(
+        static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
+        static_cast<uint8_t>(MAVLinkProtocol::getComponentId()),
+        &message, static_cast<uint8_t>(_id),
+        static_cast<uint8_t>(_defaultComponentId), "", "");
+    sendMessageOnLinkThreadSafe(link.get(), message);
+}
+
+void Vehicle::playBuzzerSpeech(const QString &text, int speed, int pitch)
+{
+    stopBuzzerSpeech();
+    if (armed() || !vehicleLinkManager()->primaryLink().lock()) return;
+    _buzzerSpeechText = text.left(240);
+    _buzzerSpeechSpeed = qBound(1, speed, 10);
+    _buzzerSpeechPitch = qBound(2, pitch, 6);
+    if (_buzzerSpeechText.trimmed().isEmpty()) return;
+    if (!_buzzerSpeechTimer) {
+        _buzzerSpeechTimer = new QTimer(this);
+        connect(_buzzerSpeechTimer, &QTimer::timeout, this, [this]() {
+            if (armed() || !vehicleLinkManager()->primaryLink().lock() ||
+                _buzzerSpeechIndex >= _buzzerSpeechText.size()) {
+                stopBuzzerSpeech();
+                return;
+            }
+            const QChar ch = _buzzerSpeechText.at(_buzzerSpeechIndex++).toLower();
+            // Deterministic phoneme-like tones, not speech samples.
+            if (ch.isSpace()) return;
+            const QString scale = QStringLiteral("CDEFGAB");
+            const uint code = ch.unicode();
+            const QChar note = scale.at(code % scale.size());
+            const int octave = qBound(2, _buzzerSpeechPitch + int((code / 7) % 3) - 1, 7);
+            const int length = QStringLiteral("аеєиіїоуюяaeiouy").contains(ch) ? 8 : 16;
+            const QByteArray tune = QStringLiteral("MFT240O%1L%2%3")
+                .arg(octave).arg(length).arg(note).toLatin1();
+            mavlink_message_t message{};
+            mavlink_msg_play_tune_pack(
+                static_cast<uint8_t>(MAVLinkProtocol::instance()->getSystemId()),
+                static_cast<uint8_t>(MAVLinkProtocol::getComponentId()),
+                &message, static_cast<uint8_t>(_id),
+                static_cast<uint8_t>(_defaultComponentId), tune.constData(), "");
+            const auto link = vehicleLinkManager()->primaryLink().lock();
+            if (link) sendMessageOnLinkThreadSafe(link.get(), message);
+        });
+    }
+    _buzzerSpeechIndex = 0;
+    _buzzerSpeechTimer->start(260 - _buzzerSpeechSpeed * 20);
+}
+
+"""
+    s = replace_once(s, anchor, impl + anchor, "buzzer speech implementation")
+    source.write_text(s, encoding="utf-8", newline="\n")
+    return [header, source]
+
+
 def patch_service_midi_player(root: Path) -> list[Path]:
     """MIDI-derived buzzer playback: seek, pause, resume and stop."""
     header = root / "src" / "Vehicle" / "Vehicle.h"
@@ -1292,6 +1375,7 @@ def main() -> int:
             ("libevents_compat", patch_libevents_compat),
             ("service_entry_tune", patch_service_entry_tune),
             ("service_midi_player", patch_service_midi_player),
+            ("buzzer_speech", patch_buzzer_speech),
             ("service_firmware_page", patch_service_firmware_page),
             ("splash", patch_splash),
         ]
