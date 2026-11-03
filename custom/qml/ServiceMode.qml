@@ -98,9 +98,12 @@ Rectangle {
         servicePanelReload.restart()
     }
 
+    property int servoReadAttempts: 0
+
     function onServiceParametersWritten() {
-        // ArduPilot parameter writes are asynchronous. Read the values back
-        // after write acknowledgements have had time to arrive.
+        // ArduPilot writes are asynchronous: wait for pending acknowledgements
+        // before reading the affected values back from the flight controller.
+        servoReadAttempts = 0
         servoReadBack.restart()
     }
 
@@ -123,7 +126,15 @@ Rectangle {
         id: servoReadBack
         interval: 1250
         repeat: false
-        onTriggered: serviceParameterSync.refreshServoOutputs()
+        onTriggered: {
+            if (!activeVehicle) return
+            if (serviceParameterSync.pendingWrites && servoReadAttempts < 8) {
+                servoReadAttempts++
+                servoReadBack.restart()
+                return
+            }
+            serviceParameterSync.refreshServoOutputs()
+        }
     }
 
     onActiveVehicleChanged: {
