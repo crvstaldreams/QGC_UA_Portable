@@ -3,6 +3,7 @@
 #include <QtCore/QObject>
 #include <QtCore/QPointer>
 #include <QtCore/QTimer>
+#include <QtCore/QElapsedTimer>
 #include <QtCore/QByteArray>
 #include <QtCore/QString>
 #include <cstdint>
@@ -23,6 +24,7 @@ class ARGNGpsProbeController : public QObject
     Q_PROPERTY(QString activePort READ activePort NOTIFY statusChanged)
     Q_PROPERTY(bool zedVerified READ zedVerified NOTIFY statusChanged)
     Q_PROPERTY(bool neoVerified READ neoVerified NOTIFY statusChanged)
+    Q_PROPERTY(int syncState READ syncState NOTIFY statusChanged)
 
 public:
     explicit ARGNGpsProbeController(QObject *parent = nullptr);
@@ -39,6 +41,7 @@ public:
     QString activePort() const { return _activePort; }
     bool zedVerified() const { return _zedVerified; }
     bool neoVerified() const { return _neoVerified; }
+    int syncState() const; // 0 disconnected, 1 waiting, 2 measured sync, 3 measured fault
 
     Q_INVOKABLE void probeGps(int port); // 1=GPS1, 2=GPS2; disarmed only
     Q_INVOKABLE void probeAll(); // Legacy individual-port probing
@@ -55,6 +58,7 @@ private:
     void onSerialControl(uint8_t device, uint8_t flags, uint16_t timeout,
                          uint32_t baudrate, QByteArray data);
     void poll();
+    void onVehicleMavlink(const mavlink_message_t &message);
     void complete(const QString &message);
     void release();
     void startDualPort(int port);
@@ -65,6 +69,9 @@ private:
 
     QPointer<Vehicle> _vehicle;
     QTimer _timer;
+    QTimer _syncUpdateTimer;
+    QElapsedTimer _syncLastMessage;
+    int _syncReported = -1;
     QByteArray _buffer;
     QString _gps1Info = QStringLiteral("Не опитано");
     QString _gps2Info = QStringLiteral("Не опитано");
