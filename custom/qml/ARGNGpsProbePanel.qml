@@ -11,6 +11,12 @@ Item {
     readonly property string gps1Info: gnssProbe.gps1Info
     readonly property string gps2Info: gnssProbe.gps2Info
     readonly property bool busy: gnssProbe.busy
+    readonly property int fcCompassState: gnssProbe.fcCompassState
+    readonly property string fcCompassInfo: gnssProbe.fcCompassInfo
+    readonly property int externalCompassState: gnssProbe.externalCompassState
+    readonly property string externalCompassInfo: gnssProbe.externalCompassInfo
+    readonly property bool scanStarted: gnssProbe.zedInfo !== "Не перевірено" ||
+        gnssProbe.neoInfo !== "Не перевірено"
     readonly property bool zedVerified: gnssProbe.zedVerified
     readonly property bool neoVerified: gnssProbe.neoVerified
     readonly property bool zedResponded: gnssProbe.zedResponded
@@ -25,6 +31,7 @@ Item {
     function requestAll() {
         if (!vehicle || vehicle.armed) return
         details.open()
+        gnssProbe.requestExternalCompass()
         gnssProbe.probeDual()
     }
     function openDetails() { details.open() }
@@ -37,7 +44,7 @@ Item {
         id: details
         parent: Overlay.overlay
         width: Math.min(600, parent.width - 30)
-        height: 365
+        height: 445
         x: (parent.width - width) / 2
         y: (parent.height - height) / 2
         modal: false
@@ -57,7 +64,7 @@ Item {
             }
             RowLayout {
                 spacing: 5
-                Button { text: "Авто GPS1/GPS2"; enabled: !!root.vehicle && !root.vehicle.armed && !gnssProbe.busy; onClicked: gnssProbe.probeDual() }
+                Button { text: "Повний запит"; enabled: !!root.vehicle && !root.vehicle.armed && !gnssProbe.busy; onClicked: root.requestAll() }
                 Button { text: "Один UART GPS1"; enabled: !!root.vehicle && !root.vehicle.armed && !gnssProbe.busy; onClicked: gnssProbe.probeDualPort(1) }
                 Button { text: "Один UART GPS2"; enabled: !!root.vehicle && !root.vehicle.armed && !gnssProbe.busy; onClicked: gnssProbe.probeDualPort(2) }
                 Button { text: "Стоп"; enabled: gnssProbe.busy; onClicked: gnssProbe.cancel() }
@@ -66,6 +73,13 @@ Item {
             Text { Layout.fillWidth: true; text: "Порт: " + gnssProbe.activePort; font.pixelSize: 12; color: "#F0D363" }
             Text { Layout.fillWidth: true; text: "ZED: " + gnssProbe.zedInfo; wrapMode: Text.WrapAnywhere; font.pixelSize: 12; color: "#FFFFFF" }
             Text { Layout.fillWidth: true; text: "NEO: " + gnssProbe.neoInfo; wrapMode: Text.WrapAnywhere; font.pixelSize: 12; color: "#FFFFFF" }
+            Text { Layout.fillWidth: true; text: "FC COMPASS: " + gnssProbe.fcCompassInfo; wrapMode: Text.WrapAnywhere; font.pixelSize: 12; color: "#FFFFFF" }
+            Text { Layout.fillWidth: true; text: "Q/F9P COMPASS: " + gnssProbe.externalCompassInfo; wrapMode: Text.WrapAnywhere; font.pixelSize: 12; color: "#FFFFFF" }
+            Button {
+                text: "Опитати Q/F9P COMPASS"
+                enabled: !!root.vehicle && !gnssProbe.busy
+                onClicked: gnssProbe.requestExternalCompass()
+            }
             Text {
                 Layout.fillWidth: true
                 text: "SYNC: зелений лише за зовнішнім MAVLink GNSS_SYNC=1 (контроль обох PPS/LED); без цього — очікуємо дані"
