@@ -385,7 +385,7 @@ void ARGNGpsProbeController::advanceDual(bool)
         _zedInfo = result;
         _zedUniqueId = _dualUniqueIdReceived ? _dualUniqueId : QString();
         _zedResponded = _dualMonVer;
-        _zedVerified = _dualMonVer && _dualUniqueIdReceived;
+        _zedVerified = _dualMonVer;
         emit statusChanged();
         beginDualReceiver(2);
         return;
@@ -394,7 +394,7 @@ void ARGNGpsProbeController::advanceDual(bool)
     _neoInfo = result;
     _neoUniqueId = _dualUniqueIdReceived ? _dualUniqueId : QString();
     _neoResponded = _dualMonVer;
-    _neoVerified = _dualMonVer && _dualUniqueIdReceived;
+    _neoVerified = _dualMonVer;
     // A duplicated silicon ID means selection is not actually isolated:
     // do not claim two distinct working receivers.
     if (!_zedUniqueId.isEmpty() && !_neoUniqueId.isEmpty() &&
