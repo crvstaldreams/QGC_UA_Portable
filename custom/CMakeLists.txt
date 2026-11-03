@@ -14,6 +14,8 @@ set(CUSTOM_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompassTelemetryController.cc
     ${CMAKE_CURRENT_SOURCE_DIR}/src/CompassTelemetryController.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/MPParamsController.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ARGNGpsProbeController.cc
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ARGNGpsProbeController.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/MPParamsController.h
     ${CMAKE_CURRENT_SOURCE_DIR}/qgc_custom_resources.qrc
     CACHE INTERNAL "" FORCE
