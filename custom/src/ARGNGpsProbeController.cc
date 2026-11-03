@@ -4,6 +4,8 @@
 #include "VehicleLinkManager.h"
 #include "MAVLinkProtocol.h"
 #include "MAVLinkLib.h"
+#include "ParameterManager.h"
+#include "Fact.h"
 
 #include <QtCore/QStringList>
 #include <cstring>
@@ -182,9 +184,15 @@ void ARGNGpsProbeController::evaluateExternalCompass()
         const bool magHealthy = (_vehicle->sensorsPresentBits() & 4) &&
             (_vehicle->sensorsEnabledBits() & 4) &&
             (_vehicle->sensorsHealthBits() & 4);
-        _externalCompassState = magHealthy ? 2 : 1;
-        _externalCompassInfo = QStringLiteral("Зовнішній MAG слот %1, DEV_ID=%2; MAG health %3 (агрегований)")
-            .arg(foundSlot + 1).arg(qint64(_compassParameterValues.value(idName)))
+        // Confirm that the reported device ID is still nonzero. A transient
+        // param response/cache race must never produce green with DEV_ID=0.
+        const qint64 deviceId = qint64(_compassParameterValues.value(idName));
+        const bool idConfirmed = deviceId > 0;
+        _externalCompassState = idConfirmed && magHealthy ? 2 : 1;
+        _externalCompassInfo = QStringLiteral("Зовнішній MAG слот %1, DEV_ID=%2; "
+            "MAG health %3 (агрегований, не індивідуальний)")
+            .arg(foundSlot + 1).arg(idConfirmed ? QString::number(deviceId)
+                                                : QStringLiteral("не підтверджено"))
             .arg(magHealthy ? QStringLiteral("OK") : QStringLiteral("не підтверджено"));
         // Keep collecting replies until the request window expires so the
         // separate FC compass can also be identified from its own slot.
@@ -220,7 +228,16 @@ void ARGNGpsProbeController::onVehicleMavlink(const mavlink_message_t &message)
             name.startsWith(QStringLiteral("COMPASS_EXTERN")) ||
             name.startsWith(QStringLiteral("COMPASS_USE"))) {
             _compassReceivedNames.insert(name);
-            _compassParameterValues.insert(name, double(param.param_value));
+            // ArduPilot device IDs can exceed the exact integer range of
+            // float32. Prefer QGC's typed parameter Fact instead of
+            // interpreting raw PARAM_VALUE.param_value as an authoritative ID.
+            double value = double(param.param_value);
+            ParameterManager *pm = _vehicle ? _vehicle->parameterManager() : nullptr;
+            if (pm && pm->parameterExists(-1, name)) {
+                Fact *fact = pm->getParameter(-1, name);
+                if (fact) value = fact->rawValue().toDouble();
+            }
+            _compassParameterValues.insert(name, value);
             evaluateExternalCompass();
         }
         return;
