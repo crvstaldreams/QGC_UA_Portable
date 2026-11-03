@@ -303,24 +303,28 @@ void ARGNGpsProbeController::startDualPort(int port)
     _timer.stop();
     _device = port + 1;
     _dualMode = true;
-    _dualReceiver = 0;
+    _dualReceiver = -1; // read-only baseline; do not change configuration
     _dualPolls = 0;
     _dualOriginalSelector = 1;
     _dualOriginalKnown = false;
+    _dualSelectorTouched = false;
+    _dualBaselineInfo.clear();
     _dualAnyResponse = false;
+    _dualMonVer = false;
+    _dualUniqueIdReceived = false;
+    _dualVersion.clear();
+    _dualUniqueId.clear();
     _busy = true;
     _activePort = QStringLiteral("GPS%1").arg(port);
     _buffer.clear();
-    _statusText = QStringLiteral("GPS%1: читаємо поточний вибір приймача…").arg(port);
+    _statusText = QStringLiteral("GPS%1: контрольний MON-VER без перемикання приймача…").arg(port);
     emit statusChanged();
 
-    // UBX-CFG-VALGET, RAM layer, key 0xAC100001 from supplied u-center
-    // selector. An unsupported query is not a fatal error.
+    // Probe the UART before any CFG-VALSET writes. If this fails,
+    // do not modify the receiver's configuration.
     sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
-               QByteArray::fromHex("b562068b080000000000010010ac5661"), 60);
-    QTimer::singleShot(320, this, [this]() {
-        if (_busy && _dualMode && _dualReceiver == 0) beginDualReceiver(1);
-    });
+               QByteArray::fromHex("b5620a0400000e34"), 80);
+    _timer.start();
 }
 
 void ARGNGpsProbeController::beginDualReceiver(int selector)
@@ -345,6 +349,7 @@ void ARGNGpsProbeController::beginDualReceiver(int selector)
     const QByteArray selectorFrame = selector == 1
         ? QByteArray::fromHex("b562068a090000010000010010ac0158bf")
         : QByteArray::fromHex("b562068a090000010000010010ac0259c0");
+    _dualSelectorTouched = true;
     sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE), selectorFrame, 0);
     QTimer::singleShot(350, this, [this, selector]() {
         if (_busy && _dualMode && _dualReceiver == selector) beginDualRead();
@@ -371,6 +376,40 @@ void ARGNGpsProbeController::advanceDual(bool)
 {
     if (!_busy || !_dualMode) return;
     _timer.stop();
+    if (_dualReceiver == -1) {
+        if (!_dualMonVer) {
+            _statusText = QStringLiteral("%1: UART не відповів на прямий MON-VER. "
+                "Селектор ZED/NEO не змінювався.").arg(_activePort);
+            _zedInfo = QStringLiteral("UART не відповідає; модуль не визначено");
+            _neoInfo = QStringLiteral("UART не відповідає; модуль не визначено");
+            finishDual();
+            return;
+        }
+        _dualAnyResponse = true;
+        _dualBaselineInfo = _dualVersion;
+        _statusText = QStringLiteral("%1: прямий MON-VER OK; читаємо RAM selector 0xAC100001…")
+            .arg(_activePort);
+        _dualReceiver = 0;
+        _dualPolls = 0;
+        _buffer.clear();
+        emit statusChanged();
+        sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
+                   QByteArray::fromHex("b562068b080000000000010010ac5661"), 80);
+        QTimer::singleShot(600, this, [this]() {
+            if (!_busy || !_dualMode || _dualReceiver != 0) return;
+            if (_dualOriginalKnown) {
+                beginDualReceiver(1);
+            } else {
+                _statusText = QStringLiteral("MON-VER відповів, але CFG-VALGET "
+                    "селектор не підтвердив. Перемикання заблоковано, "
+                    "щоб не змінити невідомий початковий стан.");
+                _zedInfo = QStringLiteral("Один F9P відповів; модель не визначено");
+                _neoInfo = QStringLiteral("Другий F9P не перевірено; селектор недоступний");
+                finishDual();
+            }
+        });
+        return;
+    }
     const QString name = _dualReceiver == 1 ? QStringLiteral("ZED") : QStringLiteral("NEO");
     QString result;
     if (_dualMonVer) {
@@ -411,8 +450,8 @@ void ARGNGpsProbeController::advanceDual(bool)
 void ARGNGpsProbeController::finishDual()
 {
     _timer.stop();
-    if (_device >= 0 && _vehicle && !_vehicle->armed()) {
-        const int restore = _dualOriginalKnown ? _dualOriginalSelector : 1;
+    if (_dualSelectorTouched && _dualOriginalKnown && _device >= 0 && _vehicle && !_vehicle->armed()) {
+        const int restore = _dualOriginalSelector;
         const QByteArray frame = restore == 2
             ? QByteArray::fromHex("b562068a090000010000010010ac0259c0")
             : QByteArray::fromHex("b562068a090000010000010010ac0158bf");
@@ -438,10 +477,8 @@ void ARGNGpsProbeController::finishDual()
     } else {
         _dualRetryOtherPort = false;
         if (_statusText.startsWith(QStringLiteral("Обидва запити"))) return;
-        _statusText = QStringLiteral("%1: сканування завершено; %2")
-            .arg(_activePort, _dualOriginalKnown
-                ? QStringLiteral("початковий вибір відновлено")
-                : QStringLiteral("вибір ZED відновлено за замовчуванням (початковий невідомий)"));
+        if (_dualOriginalKnown && _dualSelectorTouched)
+            _statusText = QStringLiteral("%1: сканування завершено; початковий вибір відновлено").arg(_activePort);
         emit statusChanged();
     }
 }
