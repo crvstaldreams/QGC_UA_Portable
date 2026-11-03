@@ -134,8 +134,9 @@ try {
     if (-not (Select-String -Path $mainSource -Pattern 'QGroundControl Portable' -Quiet)) {
         throw "Portable splash screen marker not found"
     }
-    if (-not ($allQml | Where-Object { Select-String -Path $_.FullName -Pattern 'interval:\s*5000' -Quiet } | Select-Object -First 1)) {
-        throw "MAVLink Status 5-second refresh marker not found"
+    $messageListQml = Join-Path $QgcRoot "src\QmlControls\VehicleMessageList.qml"
+    if (-not (Select-String -Path $messageListQml -Pattern 'onNewFormattedMessage' -Quiet)) {
+        throw "MAVLink event-driven message listener missing"
     }
     $contrastTextField = Join-Path $QgcRoot "src\QmlControls\QGCTextField.qml"
     if (-not (Select-String -Path $contrastTextField -Pattern 'control\.activeFocus \? 3 : 2' -Quiet)) {
@@ -252,7 +253,7 @@ try {
     if (-not (Test-Path $serviceMavlinkQml -PathType Leaf)) {
         throw "ServiceMavlinkStatus.qml missing from custom overlay"
     }
-    foreach ($mavMarker in @('interval:\s*5000', 'messageFontPointSize:\s*ScreenTools\.defaultFontPointSize', 'refreshMessages\(\)', 'ScrollBar\.vertical\.policy:\s*ScrollBar\.AlwaysOn')) {
+    foreach ($mavMarker in @('VehicleMessageList', 'ScrollBar\.vertical\.policy:\s*ScrollBar\.AlwaysOn')) {
         if (-not (Select-String -Path $serviceMavlinkQml -Pattern $mavMarker -Quiet)) {
             throw "Service MAVLink Status marker not found: $mavMarker"
         }
