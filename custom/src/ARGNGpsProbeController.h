@@ -83,6 +83,8 @@ private:
     bool _neoVerified = false;
     int _dualReceiver = 0; // 1 ZED, 2 NEO
     int _dualPolls = 0;
+    int _dualOriginalSelector = 1;
+    bool _dualOriginalKnown = false;
     QString _activePort = QStringLiteral("Не визначено");
     QString _zedInfo = QStringLiteral("Не перевірено");
     QString _neoInfo = QStringLiteral("Не перевірено");
