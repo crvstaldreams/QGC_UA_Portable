@@ -289,22 +289,6 @@ def patch_main_status(root: Path) -> Path:
             Component.onCompleted:   mainWindow.suppressCriticalVehicleMessages = true
             Component.onDestruction: mainWindow.suppressCriticalVehicleMessages = false
 
-            Settings {
-                id: mavlinkStatusSettings
-                category: "MAVLinkStatus"
-
-                property bool autoCloseEnabled: true
-                property int autoCloseSeconds: 60
-            }
-
-            Timer {
-                id: mavlinkStatusCloseTimer
-                interval: Math.max(5, mavlinkStatusSettings.autoCloseSeconds) * 1000
-                repeat: false
-                running: mavlinkStatusSettings.autoCloseEnabled
-                onTriggered: mainWindow.closeIndicatorDrawer()
-            }
-
             Timer {
                 interval: 5000
                 repeat: true
@@ -331,41 +315,6 @@ def patch_main_status(root: Path) -> Path:
 
                     QGCLabel {
                         text: "Оновлення кожні 5 с"
-                    }
-
-                    QGCComboBox {
-                        id: timeoutCombo
-                        Layout.preferredWidth: ScreenTools.defaultFontPixelWidth * 14
-                        property var timeoutValues: [0, 15, 30, 60, 120, 300, 600]
-                        model: [
-                            "Автозакриття вимкн.",
-                            "15 секунд",
-                            "30 секунд",
-                            "1 хвилина",
-                            "2 хвилини",
-                            "5 хвилин",
-                            "10 хвилин"
-                        ]
-
-                        Component.onCompleted: {
-                            if (!mavlinkStatusSettings.autoCloseEnabled) {
-                                currentIndex = 0
-                            } else {
-                                const index = timeoutValues.indexOf(mavlinkStatusSettings.autoCloseSeconds)
-                                currentIndex = index >= 0 ? index : 3
-                            }
-                        }
-
-                        onActivated: (index) => {
-                            const seconds = timeoutValues[index]
-                            mavlinkStatusSettings.autoCloseEnabled = seconds > 0
-                            if (seconds > 0) {
-                                mavlinkStatusSettings.autoCloseSeconds = seconds
-                                mavlinkStatusCloseTimer.restart()
-                            } else {
-                                mavlinkStatusCloseTimer.stop()
-                            }
-                        }
                     }
 
                     QGCButton {
