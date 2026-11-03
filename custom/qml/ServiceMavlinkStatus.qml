@@ -18,6 +18,19 @@ Rectangle {
     // VehicleMessageList listens for the vehicle's newFormattedMessage signal
     // and inserts each incoming MAVLink status message immediately.
     // No polling, refresh timer, title, or redundant controls in this view.
+    function focusNewest() {
+        Qt.callLater(function() {
+            if (mavlinkStatusScroll.ScrollBar.vertical)
+                mavlinkStatusScroll.ScrollBar.vertical.position = 0
+            vehicleMessageList.cursorPosition = 0
+            vehicleMessageList.deselect()
+        })
+    }
+    Connections {
+        target: vehicleMessageList
+        function onTextChanged() { root.focusNewest() }
+    }
+
     ScrollView {
         id: mavlinkStatusScroll
         anchors.fill: parent
@@ -33,6 +46,10 @@ Rectangle {
             messagePanelWidth: mavlinkStatusScroll.availableWidth
             messagePanelMinHeight: mavlinkStatusScroll.availableHeight
             showClearButton: false
+            messageFontPointSize: Math.max(2, ScreenTools.defaultFontPointSize * 2)
+            spaciousMessages: true
+            followNewest: true
+            font.pointSize: messageFontPointSize
         }
     }
 }
