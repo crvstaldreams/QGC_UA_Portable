@@ -631,7 +631,7 @@ def patch_service_mode_menu(root: Path) -> Path:
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 8
-        width: 390
+        width: 540
         height: 42
         z: QGroundControl.zOrderTopMost + 5
         source: "qrc:/qml/QGroundControl/Custom/ARGNModuleIndicators.qml"
