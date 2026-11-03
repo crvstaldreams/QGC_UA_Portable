@@ -6,6 +6,7 @@
 #include "MAVLinkLib.h"
 
 #include <QtCore/QStringList>
+#include <cstring>
 
 ARGNGpsProbeController::ARGNGpsProbeController(QObject *parent) : QObject(parent)
 {
@@ -51,7 +52,7 @@ void ARGNGpsProbeController::sendSerial(uint8_t flags, const QByteArray &data, u
     const auto link = _vehicle->vehicleLinkManager()->primaryLink().lock();
     if (!link) return;
     uint8_t payload[70] = {};
-    const int n = qMin(data.size(), 70);
+    const int n = static_cast<int>(qMin(data.size(), qsizetype(70)));
     if (n) memcpy(payload, data.constData(), size_t(n));
     mavlink_message_t message{};
     mavlink_msg_serial_control_pack(
