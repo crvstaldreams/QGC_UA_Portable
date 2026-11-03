@@ -489,6 +489,9 @@ void MPParamsController::_rebuildTable()
         }
         if (!_observedFacts.contains(fact)) {
             _observedFacts.insert(fact);
+            connect(fact, &QObject::destroyed, this, [this, fact]() {
+                _observedFacts.remove(fact);
+            });
             connect(fact, &Fact::rawValueChanged, this, [this](const QVariant&) {
                 _tableRefreshTimer.start();
             });
