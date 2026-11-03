@@ -177,7 +177,7 @@ try {
         'text:\s*"Servo/Saf.Mask"',
         'text:\s*"MP Params"',
         'text:\s*"Реконнект"',
-        'mainWindow\.restartActiveConnections\(\)',
+        'mainWindow\.rebootConnectedVehicle\(\)',
         'QGCAttitudeWidget',
         'activeVehicle\.gps\.count\.valueString',
         'activeVehicle\.gps\.lock\.enumStringValue',
