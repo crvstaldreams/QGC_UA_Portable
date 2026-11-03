@@ -159,6 +159,8 @@ public:
 
     Q_INVOKABLE void selectTreeFilter(const QString& prefix, bool exact);
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void refreshSelected(const QStringList& names);
+    Q_INVOKABLE void refreshServoOutputs();
     Q_INVOKABLE bool setPendingValue(int row, const QString& value);
     Q_INVOKABLE void toggleFavorite(int row);
     Q_INVOKABLE void discardPending();
