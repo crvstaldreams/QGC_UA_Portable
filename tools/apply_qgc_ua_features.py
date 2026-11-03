@@ -648,6 +648,57 @@ def patch_service_mode_menu(root: Path) -> Path:
 '''
     text = replace_once(text, vehicle_function, vehicle_with_service, "service mode show function")
 
+    # Persisting floating MAVLink view: only manual close or Esc, never timeout.
+    popup = '''    Popup {
+        id: argnMavlinkPopup
+        parent: Overlay.overlay
+        width: Math.max(420, mainWindow.width * 0.65)
+        height: Math.max(320, mainWindow.height * 0.65)
+        x: (mainWindow.width - width) / 2
+        y: (mainWindow.height - height) / 2
+        modal: false
+        focus: true
+        closePolicy: Popup.CloseOnEscape
+        background: Rectangle { color: "#181818"; radius: 8; border.color: "#777777" }
+        contentItem: Item {
+            Loader {
+                anchors.fill: parent
+                anchors.margins: 12
+                anchors.topMargin: 44
+                source: "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml"
+            }
+            QGCButton {
+                text: "Закрити"
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 6
+                onClicked: argnMavlinkPopup.close()
+            }
+        }
+    }
+
+    Loader {
+        id: argnModuleIndicators
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 8
+        width: 390
+        height: 42
+        z: QGroundControl.zOrderTopMost + 5
+        source: "qrc:/qml/QGroundControl/Custom/ARGNModuleIndicators.qml"
+    }
+
+    function showPersistentMavlinkStatus() {
+        argnMavlinkPopup.open()
+    }
+
+'''
+    text = replace_once(text,
+        "    property bool   _utmspSendActTrigger",
+        popup + "    property bool   _utmspSendActTrigger",
+        "floating MAVLink status window and permanent module health panel")
+
+
     critical_message_function = '''    function showCriticalVehicleMessage(message) {
         closeIndicatorDrawer()
 '''
