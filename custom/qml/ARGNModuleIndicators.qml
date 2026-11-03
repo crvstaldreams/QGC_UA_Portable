@@ -122,7 +122,7 @@ Rectangle {
             Text { text: "SYNC"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
             HoverHandler { id: syncHover }
             ToolTip.visible: syncHover.hovered
-            ToolTip.text: "Очікується телеметрія фаз двох LED або PPS. Звичайні GPS-дані не підтверджують синхронізації."
+            ToolTip.text: "Зелений лише при отриманні GNSS_SYNC=1 від окремого вимірювача фаз LED/PPS, червоний при GNSS_SYNC=0, жовтий без даних. GPS Fix не використовується."
         }
 
         Item { Layout.fillWidth: true }
