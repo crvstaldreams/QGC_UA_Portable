@@ -5,6 +5,7 @@ import QtCore
 import QGroundControl
 import QGroundControl.Controls
 import QGroundControl.Controllers
+import QGroundControl.Custom
 import QGroundControl.Palette
 
 Rectangle {
@@ -23,6 +24,71 @@ Rectangle {
         property bool swapped: false
     }
     FactPanelController { id: params }
+    ARGNGpsProbeController {
+        id: uartProbe
+        vehicle: root.vehicle
+    }
+
+    Popup {
+        id: uartProbePopup
+        parent: Overlay.overlay
+        width: Math.min(520, parent.width - 20)
+        height: 255
+        x: (parent.width - width) / 2
+        y: Math.max(8, parent.height - height - 65)
+        modal: false
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        onClosed: uartProbe.cancel()
+        background: Rectangle { color: "#181818"; radius: 8; border.color: "#777777" }
+        contentItem: ColumnLayout {
+            spacing: 8
+            QGCLabel { text: "GNSS UART · UBX-MON-VER"; font.bold: true; color: "#ffffff" }
+            QGCLabel {
+                Layout.fillWidth: true
+                wrapMode: Text.WordWrap
+                text: "Тільки на роззброєному борту. На короткий час GPS-драйвер відпустить UART. Не використовуйте під час польоту."
+                color: "#e5bc35"
+            }
+            RowLayout {
+                QGCButton {
+                    text: "Запит GPS1"
+                    enabled: !!root.vehicle && !root.vehicle.armed && !uartProbe.busy
+                    onClicked: uartProbe.probeGps(1)
+                }
+                QGCButton {
+                    text: "Запит GPS2"
+                    enabled: !!root.vehicle && !root.vehicle.armed && !uartProbe.busy
+                    onClicked: uartProbe.probeGps(2)
+                }
+                QGCButton {
+                    text: "Стоп"
+                    enabled: uartProbe.busy
+                    onClicked: uartProbe.cancel()
+                }
+            }
+            QGCLabel {
+                Layout.fillWidth: true
+                wrapMode: Text.WrapAnywhere
+                text: "GPS1: " + uartProbe.gps1Info
+                color: "#ffffff"
+            }
+            QGCLabel {
+                Layout.fillWidth: true
+                wrapMode: Text.WrapAnywhere
+                text: "GPS2: " + uartProbe.gps2Info
+                color: "#ffffff"
+            }
+            QGCLabel {
+                Layout.fillWidth: true
+                wrapMode: Text.WrapAnywhere
+                text: uartProbe.statusText
+                color: "#e5bc35"
+            }
+            Item { Layout.fillHeight: true }
+        }
+    }
+
 
     function fact(name) {
         return ready && params.parameterExists(-1, name)
@@ -115,6 +181,13 @@ Rectangle {
                                  : "\nMAVLink " + ((moduleSettings.swapped ? 1-index : index) === 0 ? "GPS_RAW_INT" : "GPS2_RAW"))
                 HoverHandler { id: hover }
             }
+        }
+        ToolButton {
+            text: "UART"
+            Layout.preferredWidth: 54
+            onClicked: uartProbePopup.open()
+            ToolTip.visible: hovered
+            ToolTip.text: "Ручний UBX-MON-VER запит через MAVLink SERIAL_CONTROL"
         }
         ToolButton {
             text: "⇄"
