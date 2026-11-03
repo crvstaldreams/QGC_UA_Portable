@@ -626,15 +626,39 @@ def patch_service_mode_menu(root: Path) -> Path:
         }
     }
 
-    Loader {
-        id: argnModuleIndicators
+    // The FlyView and other full-screen views can cover ordinary siblings.
+    // Keep a persistent, visible lower status strip on the window content layer.
+    Rectangle {
+        id: argnModuleStatusStrip
+        parent: mainWindow.contentItem
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottomMargin: 8
-        width: 540
-        height: 42
-        z: QGroundControl.zOrderTopMost + 5
-        source: "qrc:/qml/QGroundControl/Custom/ARGNModuleIndicators.qml"
+        anchors.bottomMargin: 16
+        width: Math.min(580, parent.width - 16)
+        height: 50
+        radius: 8
+        color: "#141414"
+        border.color: "#FFD400"
+        border.width: 1
+        z: 1000000
+        visible: flyView.visible && !toolDrawer.visible
+
+        Loader {
+            id: argnModuleIndicators
+            anchors.fill: parent
+            source: "qrc:/qml/QGroundControl/Custom/ARGNModuleIndicators.qml"
+            onStatusChanged: {
+                if (status === Loader.Error)
+                    console.error("ARGN GNSS indicators failed to load:", source)
+            }
+        }
+        Text {
+            anchors.centerIn: parent
+            visible: argnModuleIndicators.status !== Loader.Ready
+            text: "GNSS ZED / NEO / COMPASS: завантаження індикаторів"
+            color: "#FFD400"
+            font.pixelSize: 13
+        }
     }
 
     function showPersistentMavlinkStatus() {
