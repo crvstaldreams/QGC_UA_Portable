@@ -165,12 +165,12 @@ Rectangle {
                 readonly property var gps: moduleSettings.swapped
                     ? (index === 0 ? root.vehicle && root.vehicle.gps2 : root.vehicle && root.vehicle.gps)
                     : (index === 0 ? root.vehicle && root.vehicle.gps : root.vehicle && root.vehicle.gps2)
-                readonly property int state: index === 2 ? root.compassState() : root.gpsState(gps)
+                readonly property int healthState: index === 2 ? root.compassState() : root.gpsState(gps)
                 Rectangle {
                     width: 13
                     height: 13
                     radius: 7
-                    color: root.stateColor(parent.state)
+                    color: root.stateColor(parent.healthState)
                     border.width: 1
                     border.color: "#777777"
                 }
@@ -181,7 +181,7 @@ Rectangle {
                     font.pixelSize: 13
                 }
                 ToolTip.visible: hover.hovered
-                ToolTip.text: root.stateText(state, modelData) +
+                ToolTip.text: root.stateText(healthState, modelData) +
                     (index === 2 ? "\nОцінка за параметрами зовнішнього компаса та загальним MAG health"
                                  : "\nMAVLink " + ((moduleSettings.swapped ? 1-index : index) === 0 ? "GPS_RAW_INT" : "GPS2_RAW"))
                 HoverHandler { id: hover }
