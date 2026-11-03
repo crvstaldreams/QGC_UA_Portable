@@ -46,8 +46,9 @@ Rectangle {
             messagePanelWidth: mavlinkStatusScroll.availableWidth
             messagePanelMinHeight: mavlinkStatusScroll.availableHeight
             showClearButton: false
-            messageFontPointSize: Math.max(2, ScreenTools.defaultFontPointSize * 2)
-            spaciousMessages: true
+            messageFontPointSize: Math.max(2, ScreenTools.defaultFontPointSize * 1.5)
+            spaciousMessages: false
+            compactMessages: true
             followNewest: true
             font.pointSize: messageFontPointSize
         }
