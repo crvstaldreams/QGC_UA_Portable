@@ -10,7 +10,7 @@ Rectangle {
     radius: 8
     color: "#141414"
     property var vehicle: QGroundControl.multiVehicleManager.activeVehicle
-    property bool swapped: false
+    // Both F9Ps share one physical GPS UART. Receiver selection is done via UBX.
     property int secondsConnected: 0
 
     Loader {
@@ -25,11 +25,22 @@ Rectangle {
     }
 
     readonly property string zedIdInfo: probeLoader.item
-        ? (swapped ? probeLoader.item.gps2Info : probeLoader.item.gps1Info)
-        : "UART діагностика недоступна"
+        ? probeLoader.item.zedInfo : "UART діагностика недоступна"
     readonly property string neoIdInfo: probeLoader.item
-        ? (swapped ? probeLoader.item.gps1Info : probeLoader.item.gps2Info)
-        : "UART діагностика недоступна"
+        ? probeLoader.item.neoInfo : "UART діагностика недоступна"
+
+    function receiverHealth(which) {
+        if (!vehicle) return 0
+        if (!probeLoader.item) return 1
+        if (which === "ZED" && probeLoader.item.zedVerified) return 2
+        if (which === "NEO" && probeLoader.item.neoVerified) return 2
+        return probeLoader.item.scanComplete ? 0 : 1
+    }
+    function syncHealth() {
+        // The two PPS/LED phases are not present in standard MAVLink GNSS
+        // messages. Never infer LED synchronization from GPS Fix or MON-VER.
+        return vehicle ? 1 : 0
+    }
 
     function gpsHealth(gps) {
         if (!vehicle) return 0
@@ -79,25 +90,39 @@ Rectangle {
 
         RowLayout {
             spacing: 5
-            readonly property int health: root.gpsHealth(root.swapped
-                ? (root.vehicle ? root.vehicle.gps2 : null)
-                : (root.vehicle ? root.vehicle.gps : null))
+            readonly property int health: root.receiverHealth("ZED")
             Rectangle { width: 13; height: 13; radius: 7; color: root.statusColor(parent.health); border.color: "#9A9A9A" }
             Text { text: "ZED"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
+            HoverHandler { id: zedHover }
+            ToolTip.visible: zedHover.hovered
+            ToolTip.text: root.stateHint(health, "ZED") + "\n" + root.zedIdInfo
         }
         RowLayout {
             spacing: 5
-            readonly property int health: root.gpsHealth(root.swapped
-                ? (root.vehicle ? root.vehicle.gps : null)
-                : (root.vehicle ? root.vehicle.gps2 : null))
+            readonly property int health: root.receiverHealth("NEO")
             Rectangle { width: 13; height: 13; radius: 7; color: root.statusColor(parent.health); border.color: "#9A9A9A" }
             Text { text: "NEO"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
+            HoverHandler { id: neoHover }
+            ToolTip.visible: neoHover.hovered
+            ToolTip.text: root.stateHint(health, "NEO") + "\n" + root.neoIdInfo
         }
         RowLayout {
             spacing: 5
             readonly property int health: root.compassHealth()
             Rectangle { width: 13; height: 13; radius: 7; color: root.statusColor(parent.health); border.color: "#9A9A9A" }
             Text { text: "COMPASS"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
+            HoverHandler { id: compassHover }
+            ToolTip.visible: compassHover.hovered
+            ToolTip.text: "Загальний MAVLink MAG health; зовнішній компас окремо не ідентифіковано"
+        }
+        RowLayout {
+            spacing: 5
+            readonly property int health: root.syncHealth()
+            Rectangle { width: 13; height: 13; radius: 7; color: root.statusColor(parent.health); border.color: "#9A9A9A" }
+            Text { text: "SYNC"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
+            HoverHandler { id: syncHover }
+            ToolTip.visible: syncHover.hovered
+            ToolTip.text: "Очікується телеметрія фаз двох LED або PPS. Звичайні GPS-дані не підтверджують синхронізації."
         }
 
         Item { Layout.fillWidth: true }
@@ -108,14 +133,7 @@ Rectangle {
             enabled: !!root.vehicle && !root.vehicle.armed && probeLoader.item && !probeLoader.item.busy
             onClicked: probeLoader.item.requestAll()
             ToolTip.visible: hovered
-            ToolTip.text: "Ручна діагностика GPS1 / GPS2 (UBX-MON-VER); лише на роззброєному борту"
-        }
-        Button {
-            text: "⇄"
-            Layout.preferredWidth: 36
-            onClicked: root.swapped = !root.swapped
-            ToolTip.visible: hovered
-            ToolTip.text: "Поміняти відповідність ZED і NEO до GPS1/GPS2"
+            ToolTip.text: "Послідовний запит ZED і NEO через один UART GPS1 або GPS2, без вимоги GPS Fix"
         }
     }
 }
