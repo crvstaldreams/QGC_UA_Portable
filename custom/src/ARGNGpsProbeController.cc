@@ -13,6 +13,9 @@ ARGNGpsProbeController::ARGNGpsProbeController(QObject *parent) : QObject(parent
     _timer.setInterval(180);
     _timer.setSingleShot(false);
     connect(&_timer, &QTimer::timeout, this, &ARGNGpsProbeController::poll);
+    _syncUpdateTimer.setInterval(1000);
+    connect(&_syncUpdateTimer, &QTimer::timeout, this, [this]() { emit statusChanged(); });
+    _syncUpdateTimer.start();
 }
 
 ARGNGpsProbeController::~ARGNGpsProbeController()
@@ -29,6 +32,8 @@ void ARGNGpsProbeController::setVehicle(Vehicle *vehicle)
     if (_vehicle) {
         connect(_vehicle, &Vehicle::mavlinkSerialControl,
                 this, &ARGNGpsProbeController::onSerialControl);
+        connect(_vehicle, &Vehicle::mavlinkMessageReceived,
+                this, &ARGNGpsProbeController::onVehicleMavlink);
         connect(_vehicle, &QObject::destroyed, this, [this]() {
             _timer.stop();
             _device = -1;
@@ -39,6 +44,8 @@ void ARGNGpsProbeController::setVehicle(Vehicle *vehicle)
             emit statusChanged();
         });
     }
+    _syncReported = -1;
+    _syncLastMessage.invalidate();
     _gps1Info = QStringLiteral("Не опитано");
     _zedInfo = QStringLiteral("Не перевірено");
     _neoInfo = QStringLiteral("Не перевірено");
@@ -48,6 +55,29 @@ void ARGNGpsProbeController::setVehicle(Vehicle *vehicle)
     _gps2Info = QStringLiteral("Не опитано");
     _statusText = QStringLiteral("Виберіть UART GPS1 або GPS2");
     emit vehicleChanged();
+    emit statusChanged();
+}
+
+int ARGNGpsProbeController::syncState() const
+{
+    if (!_vehicle) return 0;
+    if (!_syncLastMessage.isValid() || _syncLastMessage.elapsed() > 3000)
+        return 1;
+    return _syncReported == 1 ? 2 : _syncReported == 0 ? 3 : 1;
+}
+
+void ARGNGpsProbeController::onVehicleMavlink(const mavlink_message_t &message)
+{
+    if (message.msgid != MAVLINK_MSG_ID_NAMED_VALUE_INT) return;
+    mavlink_named_value_int_t info{};
+    mavlink_msg_named_value_int_decode(&message, &info);
+    const QByteArray name(info.name, sizeof(info.name));
+    if (name.left(9) != QByteArrayLiteral("GNSS_SYNC")) return;
+
+    // An independent monitor must measure phase of two PPS/LED edges.
+    // 1=synchronized, 0=measured out-of-phase; unreported/expired is UNKNOWN.
+    _syncReported = info.value == 1 ? 1 : info.value == 0 ? 0 : -1;
+    _syncLastMessage.restart();
     emit statusChanged();
 }
 
