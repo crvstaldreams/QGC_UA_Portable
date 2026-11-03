@@ -58,7 +58,8 @@ void ARGNGpsProbeController::sendSerial(uint8_t flags, const QByteArray &data, u
     mavlink_msg_serial_control_pack(
         uint8_t(MAVLinkProtocol::instance()->getSystemId()),
         uint8_t(MAVLinkProtocol::getComponentId()), &message,
-        uint8_t(_device), flags, timeoutMs, 0, uint8_t(n), payload);
+        uint8_t(_device), flags, timeoutMs, 0, uint8_t(n), payload,
+        uint32_t(_vehicle->id()), uint8_t(_vehicle->defaultComponentId()));
     _vehicle->sendMessageOnLinkThreadSafe(link.get(), message);
 }
 
