@@ -31,6 +31,7 @@ public:
     QString statusText() const { return _statusText; }
 
     Q_INVOKABLE void probeGps(int port); // 1=GPS1, 2=GPS2; disarmed only
+    Q_INVOKABLE void probeAll(); // Sequential GPS1 then GPS2 request
     Q_INVOKABLE void cancel();
 
 signals:
@@ -54,4 +55,6 @@ private:
     int _device = -1;
     int _polls = 0;
     bool _busy = false;
+    bool _probeAll = false;
+    bool _nextGpsPending = false;
 };
