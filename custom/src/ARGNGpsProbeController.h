@@ -10,7 +10,7 @@
 
 // Manual, short-lived UBX-MON-VER probe over MAVLink SERIAL_CONTROL.
 // Never runs automatically: SERIAL_CONTROL EXCLUSIVE temporarily locks GPS UART.
-class ARGNGpsProbeController final : public QObject
+class ARGNGpsProbeController : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(Vehicle* vehicle READ vehicle WRITE setVehicle NOTIFY vehicleChanged)
