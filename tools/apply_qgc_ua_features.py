@@ -254,7 +254,7 @@ def patch_vehicle_message_list(root: Path) -> Path:
         text,
         fmt_marker,
         '        if (spaciousMessages) {\n'
-        '            message = message.replace(/<br\\\\s*\\\\/?>/gi, "<br/><br/>")\n'
+        '            message = message.split("<br/>").join("<br/><br/>")\n'
         '        }\n'
         '        return message;\n    }\n',
         "MAVLink message paragraph spacing",
