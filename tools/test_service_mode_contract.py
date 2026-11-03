@@ -74,7 +74,9 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("components.length", self.service)
         self.assertIn("components[i]", self.service)
         self.assertIn('text: "Реконнект"', self.service)
-        self.assertIn("mainWindow.restartActiveConnections()", self.service)
+        self.assertIn("mainWindow.rebootConnectedVehicle()", self.service)
+        self.assertIn("onActiveVehicleChanged", self.service)
+        self.assertIn("refreshServoOutputs()", self.service)
 
     def test_parameter_view_has_service_tree_without_explanation_panel(self):
         self.assertIn("Дерево параметрів", self.params)
