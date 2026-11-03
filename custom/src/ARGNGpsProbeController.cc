@@ -51,6 +51,8 @@ void ARGNGpsProbeController::setVehicle(Vehicle *vehicle)
     _neoInfo = QStringLiteral("Не перевірено");
     _zedVerified = false;
     _neoVerified = false;
+    _zedResponded = false;
+    _neoResponded = false;
     _activePort = QStringLiteral("Не визначено");
     _gps2Info = QStringLiteral("Не опитано");
     _statusText = QStringLiteral("Виберіть UART GPS1 або GPS2");
@@ -111,6 +113,8 @@ void ARGNGpsProbeController::probeDual()
     _neoInfo = QStringLiteral("Очікуємо відповідь…");
     _zedVerified = false;
     _neoVerified = false;
+    _zedResponded = false;
+    _neoResponded = false;
     _zedUniqueId.clear();
     _neoUniqueId.clear();
     startDualPort(1);
@@ -129,6 +133,8 @@ void ARGNGpsProbeController::probeDualPort(int port)
     _neoInfo = QStringLiteral("Очікуємо відповідь…");
     _zedVerified = false;
     _neoVerified = false;
+    _zedResponded = false;
+    _neoResponded = false;
     _zedUniqueId.clear();
     _neoUniqueId.clear();
     startDualPort(port);
@@ -223,7 +229,8 @@ void ARGNGpsProbeController::advanceDual(bool)
     if (_dualReceiver == 1) {
         _zedInfo = result;
         _zedUniqueId = _dualUniqueIdReceived ? _dualUniqueId : QString();
-        _zedVerified = _dualMonVer;
+        _zedResponded = _dualMonVer;
+        _zedVerified = _dualMonVer && _dualUniqueIdReceived;
         emit statusChanged();
         beginDualReceiver(2);
         return;
@@ -231,7 +238,8 @@ void ARGNGpsProbeController::advanceDual(bool)
 
     _neoInfo = result;
     _neoUniqueId = _dualUniqueIdReceived ? _dualUniqueId : QString();
-    _neoVerified = _dualMonVer;
+    _neoResponded = _dualMonVer;
+    _neoVerified = _dualMonVer && _dualUniqueIdReceived;
     // A duplicated silicon ID means selection is not actually isolated:
     // do not claim two distinct working receivers.
     if (!_zedUniqueId.isEmpty() && !_neoUniqueId.isEmpty() &&
