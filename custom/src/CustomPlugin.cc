@@ -1,6 +1,7 @@
 #include "CustomPlugin.h"
 #include "MPParamsController.h"
 #include "CompassTelemetryController.h"
+#include "ARGNGpsProbeController.h"
 
 #include <QtQml/qqml.h>
 
@@ -12,6 +13,7 @@ CustomPlugin::CustomPlugin(QObject *parent)
     : QGCCorePlugin(parent)
 {
     qmlRegisterType<MPParamsController>("QGroundControl.Custom", 1, 0, "MPParamsController");
+    qmlRegisterType<ARGNGpsProbeController>("QGroundControl.Custom", 1, 0, "ARGNGpsProbeController");
     qmlRegisterType<CompassTelemetryController>("QGroundControl.Custom", 1, 0, "CompassTelemetryController");
 }
 
