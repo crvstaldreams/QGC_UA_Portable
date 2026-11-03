@@ -186,7 +186,8 @@ void ARGNGpsProbeController::evaluateExternalCompass()
         _externalCompassInfo = QStringLiteral("Зовнішній MAG слот %1, DEV_ID=%2; MAG health %3 (агрегований)")
             .arg(foundSlot + 1).arg(qint64(_compassParameterValues.value(idName)))
             .arg(magHealthy ? QStringLiteral("OK") : QStringLiteral("не підтверджено"));
-        _compassRequestPending = false;
+        // Keep collecting replies until the request window expires so the
+        // separate FC compass can also be identified from its own slot.
     } else if (_compassRequestPending) {
         _externalCompassState = 1;
         _externalCompassInfo = QStringLiteral("Очікуємо відповіді зовнішнього компаса…");
