@@ -219,9 +219,10 @@ void ARGNGpsProbeController::advanceDual(bool)
     const QString name = _dualReceiver == 1 ? QStringLiteral("ZED") : QStringLiteral("NEO");
     QString result;
     if (_dualMonVer) {
-        result = QStringLiteral("MON-VER OK | ") + _dualVersion;
-        if (_dualUniqueIdReceived) result += QStringLiteral(" | UID=") + _dualUniqueId;
-        else result += QStringLiteral(" | UID недоступний");
+        result = _dualUniqueIdReceived
+            ? QStringLiteral("UID=") + _dualUniqueId + QStringLiteral(" | ")
+            : QStringLiteral("UID недоступний | ");
+        result += QStringLiteral("MON-VER OK | ") + _dualVersion;
         _dualAnyResponse = true;
     } else {
         result = QStringLiteral("Немає відповіді UBX після вибору ") + name;
