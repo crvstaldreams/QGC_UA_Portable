@@ -662,11 +662,19 @@ def patch_service_mode_menu(root: Path) -> Path:
                 anchors.topMargin: 38
                 source: "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml"
             }
-            QGCButton {
-                text: "Закрити"
+            Button {
+                id: argnMavlinkClose
+                text: "×"
+                width: 30
+                height: 30
+                padding: 0
+                font.pixelSize: 22
+                font.bold: true
                 anchors.right: parent.right
                 anchors.top: parent.top
-                anchors.margins: 6
+                anchors.margins: 5
+                ToolTip.visible: hovered
+                ToolTip.text: "Закрити MAVLink Status"
                 onClicked: argnMavlinkPopup.close()
             }
         }
