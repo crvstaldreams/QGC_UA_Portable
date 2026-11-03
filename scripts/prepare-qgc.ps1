@@ -174,7 +174,6 @@ try {
         'text:\s*"Датчики"',
         'text:\s*"Компаси"',
         'text:\s*"Servo/Saf.Mask"',
-        'text:\s*"MAVLink Status"',
         'text:\s*"MP Params"',
         'text:\s*"Реконнект"',
         'mainWindow\.restartActiveConnections\(\)',
@@ -186,6 +185,12 @@ try {
         if (-not (Select-String -Path $serviceModeQml -Pattern $serviceMarker -Quiet)) {
             throw "Service mode marker not found: $serviceMarker"
         }
+    }
+    if (-not (Select-String -Path $mainWindow.FullName -Pattern 'showPersistentMavlinkStatus' -Quiet)) {
+        throw "Persistent MAVLink Status toolbar hook missing"
+    }
+    if (-not (Test-Path (Join-Path $QgcRoot "custom\qml\ARGNModuleIndicators.qml") -PathType Leaf)) {
+        throw "ARGN module indicator QML missing from overlay"
     }
     if (-not (Test-Path $serviceCompassesQml -PathType Leaf)) {
         throw "ServiceCompasses.qml missing from custom overlay"
