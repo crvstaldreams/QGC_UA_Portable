@@ -6,6 +6,7 @@
 #include <QtCore/QHash>
 #include <QtCore/QMap>
 #include <QtCore/QSet>
+#include <QtCore/QTimer>
 #include <QtCore/QStringList>
 #include <QtGui/QStandardItemModel>
 
@@ -216,4 +217,6 @@ private:
 
     QHash<QString, QString> _pendingValues;
     QSet<QString> _favorites;
+    QSet<Fact*> _observedFacts;
+    QTimer _tableRefreshTimer;
 };
