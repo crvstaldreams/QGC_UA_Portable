@@ -18,6 +18,7 @@ Item {
     property Fact safetyMaskFact: safetyMaskAvailable
                                   ? controller.getParameterFact(-1, "BRD_SAFETY_MASK", false)
                                   : null
+    signal serviceParametersWritten()
     property int presetRevision: 0
     property string activePreset: ""
 
@@ -82,7 +83,14 @@ Item {
 
         activePreset = presetName
         presetRevision++
+        serviceParametersWritten()
         Qt.callLater(function() { root.presetRevision++ })
+    }
+
+    function refreshFromVehicle() {
+        activePreset = ""
+        presetRevision++
+        Qt.callLater(syncSafetySlider)
     }
 
     function applyFmuPwmOutAuxProfile() {
