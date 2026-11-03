@@ -1373,9 +1373,6 @@ def main() -> int:
             ("quick_vehicle_toolbar", patch_quick_vehicle_toolbar),
             ("application_restart", patch_application_restart),
             ("libevents_compat", patch_libevents_compat),
-            ("service_entry_tune", patch_service_entry_tune),
-            ("service_midi_player", patch_service_midi_player),
-            ("buzzer_speech", patch_buzzer_speech),
             ("service_firmware_page", patch_service_firmware_page),
             ("splash", patch_splash),
         ]
