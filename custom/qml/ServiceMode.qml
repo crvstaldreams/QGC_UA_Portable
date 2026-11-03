@@ -6,6 +6,7 @@ import QGroundControl.Controls
 import QGroundControl.FlightMap
 import QGroundControl.Palette
 import QGroundControl.ScreenTools
+import QGroundControl.Custom 1.0
 
 Rectangle {
     id: setupView
@@ -85,7 +86,53 @@ Rectangle {
     }
 
     function reconnectVehicle() {
-        mainWindow.restartActiveConnections()
+        // Match the existing toolbar's autopilot reboot action.
+        if (activeVehicle && !activeVehicle.armed)
+            mainWindow.rebootConnectedVehicle()
+    }
+
+    function refreshVisiblePanel() {
+        if (!activeVehicle) return
+        // Facts update live on PARAM_VALUE. Recreate the active panel on
+        // vehicle/parameter readiness changes to replace stale page contexts.
+        servicePanelReload.restart()
+    }
+
+    function onServiceParametersWritten() {
+        // ArduPilot parameter writes are asynchronous. Read the values back
+        // after write acknowledgements have had time to arrive.
+        servoReadBack.restart()
+    }
+
+    MPParamsController { id: serviceParameterSync }
+
+    Timer {
+        id: servicePanelReload
+        interval: 120
+        repeat: false
+        onTriggered: {
+            serviceLoader.active = false
+            Qt.callLater(function() {
+                serviceLoader.active = true
+                if (serviceLoader.item && serviceLoader.item.refreshFromVehicle)
+                    serviceLoader.item.refreshFromVehicle()
+            })
+        }
+    }
+    Timer {
+        id: servoReadBack
+        interval: 1250
+        repeat: false
+        onTriggered: serviceParameterSync.refreshServoOutputs()
+    }
+
+    onActiveVehicleChanged: {
+        // Restore the currently selected tab when the FC reconnects.
+        servoReadBack.stop()
+        refreshVisiblePanel()
+    }
+    onParametersReadyChanged: {
+        if (parametersReady) refreshVisiblePanel()
     }
 
     // VehicleSummary.qml calls this when a summary card is clicked. In service
@@ -242,7 +289,7 @@ Rectangle {
                 QGCButton {
                     Layout.fillWidth: true
                     text: "Реконнект"
-                    enabled: true
+                    enabled: !!activeVehicle && !activeVehicle.armed
                     onClicked: reconnectVehicle()
                 }
 
@@ -275,6 +322,14 @@ Rectangle {
                     if (currentPage === "firmware" && item && item.serviceModeEmbedded !== undefined) {
                         item.serviceModeEmbedded = true
                     }
+                    if (item && item.refreshFromVehicle)
+                        item.refreshFromVehicle()
+                }
+
+                Connections {
+                    target: serviceLoader.item
+                    ignoreUnknownSignals: true
+                    function onServiceParametersWritten() { setupView.onServiceParametersWritten() }
                 }
             }
 
