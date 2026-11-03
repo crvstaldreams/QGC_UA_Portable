@@ -5,8 +5,8 @@
 #include <QtCore/QTimer>
 #include <QtCore/QByteArray>
 #include <QtCore/QString>
-
-class Vehicle;
+#include <cstdint>
+#include "Vehicle.h"
 
 // Manual, short-lived UBX-MON-VER probe over MAVLink SERIAL_CONTROL.
 // Never runs automatically: SERIAL_CONTROL EXCLUSIVE temporarily locks GPS UART.
