@@ -63,6 +63,21 @@ void ARGNGpsProbeController::sendSerial(uint8_t flags, const QByteArray &data, u
     _vehicle->sendMessageOnLinkThreadSafe(link.get(), message);
 }
 
+void ARGNGpsProbeController::probeAll()
+{
+    if (!_vehicle || _busy || _nextGpsPending) return;
+    if (_vehicle->armed()) {
+        _statusText = QStringLiteral("Відмовлено: спочатку роззбройте борт");
+        emit statusChanged();
+        return;
+    }
+    _probeAll = true;
+    _gps1Info = QStringLiteral("Очікуємо запит…");
+    _gps2Info = QStringLiteral("Очікуємо запит…");
+    probeGps(1);
+    if (!_busy) _probeAll = false;
+}
+
 void ARGNGpsProbeController::probeGps(int port)
 {
     if (!_vehicle || _busy || (port != 1 && port != 2)) return;
@@ -167,14 +182,30 @@ void ARGNGpsProbeController::complete(const QString &message)
     release();
     if (_device == 2) _gps1Info = message;
     else if (_device == 3) _gps2Info = message;
+    const bool requestSecondGps = _probeAll && _device == 2 &&
+        _vehicle && !_vehicle->armed() && !_nextGpsPending;
     _statusText = message;
     _device = -1;
     _busy = false;
     emit statusChanged();
+    if (requestSecondGps) {
+        _nextGpsPending = true;
+        QTimer::singleShot(250, this, [this]() {
+            _nextGpsPending = false;
+            if (!_probeAll || !_vehicle || _vehicle->armed()) {
+                _probeAll = false;
+                return;
+            }
+            probeGps(2);
+            _probeAll = false;
+        });
+    }
 }
 
 void ARGNGpsProbeController::cancel()
 {
+    _probeAll = false;
+    _nextGpsPending = false;
     if (!_busy) return;
     complete(QStringLiteral("Опитування скасовано"));
 }
