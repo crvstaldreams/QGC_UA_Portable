@@ -46,6 +46,12 @@ void ARGNGpsProbeController::setVehicle(Vehicle *vehicle)
     }
     _syncReported = -1;
     _syncLastMessage.invalidate();
+    ++_compassRequestGeneration;
+    _compassRequestPending = false;
+    _externalCompassState = 0;
+    _externalCompassInfo = QStringLiteral("Не опитано");
+    _compassParameterValues.clear();
+    _compassReceivedNames.clear();
     _gps1Info = QStringLiteral("Не опитано");
     _zedInfo = QStringLiteral("Не перевірено");
     _neoInfo = QStringLiteral("Не перевірено");
@@ -60,6 +66,139 @@ void ARGNGpsProbeController::setVehicle(Vehicle *vehicle)
     emit statusChanged();
 }
 
+int ARGNGpsProbeController::fcCompassState() const
+{
+    if (!_vehicle) return 0;
+    const int magBit = 4;
+    const int present = _vehicle->sensorsPresentBits();
+    const int enabled = _vehicle->sensorsEnabledBits();
+    const int healthy = _vehicle->sensorsHealthBits();
+    if (!(present & magBit)) return 0;
+    if (!(enabled & magBit) || !(healthy & magBit)) return 3;
+    // MAVLink SYS_STATUS MAG is aggregate: an internal compass must be
+    // discovered separately before claiming FC compass is individually OK.
+    bool internalFound = false;
+    for (int i = 0; i < 3; ++i) {
+        const QString suffix = i == 0 ? QString() : QString::number(i + 1);
+        const QString idName = QStringLiteral("COMPASS_DEV_ID") + suffix;
+        const QString exName = i == 0 ? QStringLiteral("COMPASS_EXTERNAL")
+                                        : QStringLiteral("COMPASS_EXTERN") + suffix;
+        if (_compassReceivedNames.contains(idName) &&
+            _compassReceivedNames.contains(exName) &&
+            _compassParameterValues.value(idName) > 0 &&
+            _compassParameterValues.value(exName) == 0) {
+            internalFound = true;
+            break;
+        }
+    }
+    return internalFound ? 2 : 1;
+}
+
+QString ARGNGpsProbeController::fcCompassInfo() const
+{
+    const int state = fcCompassState();
+    if (state == 0) return QStringLiteral("Немає MAG-телеметрії");
+    if (state == 3) return QStringLiteral("Загальний MAG health: помилка");
+    if (state == 2) return QStringLiteral("Внутрішній COMPASS_DEV_ID знайдено; MAG health OK (агрегований)");
+    return QStringLiteral("MAG health є, але внутрішній компас окремо не підтверджено");
+}
+
+void ARGNGpsProbeController::requestExternalCompass()
+{
+    if (!_vehicle) {
+        _externalCompassState = 0;
+        _externalCompassInfo = QStringLiteral("Немає MAVLink-з'єднання");
+        emit statusChanged();
+        return;
+    }
+    const auto link = _vehicle->vehicleLinkManager()->primaryLink().lock();
+    if (!link) return;
+    ++_compassRequestGeneration;
+    const quint32 generation = _compassRequestGeneration;
+    _compassRequestPending = true;
+    _externalCompassState = 1;
+    _externalCompassInfo = QStringLiteral("Опитування COMPASS_DEV_ID / EXTERNAL через MAVLink…");
+    _compassParameterValues.clear();
+    _compassReceivedNames.clear();
+    emit statusChanged();
+
+    const QStringList names = {
+        QStringLiteral("COMPASS_DEV_ID"), QStringLiteral("COMPASS_EXTERNAL"), QStringLiteral("COMPASS_USE"),
+        QStringLiteral("COMPASS_DEV_ID2"), QStringLiteral("COMPASS_EXTERN2"), QStringLiteral("COMPASS_USE2"),
+        QStringLiteral("COMPASS_DEV_ID3"), QStringLiteral("COMPASS_EXTERN3"), QStringLiteral("COMPASS_USE3")
+    };
+    for (const QString &name : names) {
+        const QByteArray bytes = name.toLatin1();
+        mavlink_message_t msg{};
+        mavlink_msg_param_request_read_pack(
+            uint8_t(MAVLinkProtocol::instance()->getSystemId()),
+            uint8_t(MAVLinkProtocol::getComponentId()),
+            &msg,
+            uint8_t(_vehicle->id()),
+            uint8_t(_vehicle->defaultComponentId()),
+            bytes.constData(), -1);
+        _vehicle->sendMessageOnLinkThreadSafe(link.get(), msg);
+    }
+    QTimer::singleShot(2500, this, [this, generation]() {
+        if (generation != _compassRequestGeneration || !_compassRequestPending) return;
+        _compassRequestPending = false;
+        evaluateExternalCompass();
+    });
+}
+
+void ARGNGpsProbeController::evaluateExternalCompass()
+{
+    if (!_vehicle) {
+        _externalCompassState = 0;
+        _externalCompassInfo = QStringLiteral("Від'єднано");
+        emit statusChanged();
+        return;
+    }
+    int foundSlot = -1;
+    int pendingPairs = 0;
+    for (int i = 0; i < 3; ++i) {
+        const QString suffix = i == 0 ? QString() : QString::number(i + 1);
+        const QString idName = QStringLiteral("COMPASS_DEV_ID") + suffix;
+        const QString exName = i == 0 ? QStringLiteral("COMPASS_EXTERNAL")
+                                        : QStringLiteral("COMPASS_EXTERN") + suffix;
+        const bool hasId = _compassReceivedNames.contains(idName);
+        const bool hasEx = _compassReceivedNames.contains(exName);
+        if (!hasId || !hasEx) {
+            ++pendingPairs;
+            continue;
+        }
+        if (_compassParameterValues.value(idName) > 0 &&
+            _compassParameterValues.value(exName) != 0) {
+            foundSlot = i;
+            break;
+        }
+    }
+    if (foundSlot >= 0) {
+        const QString suffix = foundSlot == 0 ? QString() : QString::number(foundSlot + 1);
+        const QString idName = QStringLiteral("COMPASS_DEV_ID") + suffix;
+        // A parameter round trip proves the FC reports a configured external
+        // magnetometer. MAVLink does NOT prove the physical GPS1 I2C wiring or
+        // provide an independent live health bit for this particular sensor.
+        const bool magHealthy = (_vehicle->sensorsPresentBits() & 4) &&
+            (_vehicle->sensorsEnabledBits() & 4) &&
+            (_vehicle->sensorsHealthBits() & 4);
+        _externalCompassState = magHealthy ? 2 : 1;
+        _externalCompassInfo = QStringLiteral("Зовнішній MAG слот %1, DEV_ID=%2; MAG health %3 (агрегований)")
+            .arg(foundSlot + 1).arg(qint64(_compassParameterValues.value(idName)))
+            .arg(magHealthy ? QStringLiteral("OK") : QStringLiteral("не підтверджено"));
+        _compassRequestPending = false;
+    } else if (_compassRequestPending) {
+        _externalCompassState = 1;
+        _externalCompassInfo = QStringLiteral("Очікуємо відповіді зовнішнього компаса…");
+    } else {
+        _externalCompassState = 0;
+        _externalCompassInfo = pendingPairs == 3
+            ? QStringLiteral("Немає відповіді COMPASS_* від польотника")
+            : QStringLiteral("Зовнішній MAG не підтверджений параметрами польотника");
+    }
+    emit statusChanged();
+}
+
 int ARGNGpsProbeController::syncState() const
 {
     if (!_vehicle) return 0;
@@ -70,6 +209,21 @@ int ARGNGpsProbeController::syncState() const
 
 void ARGNGpsProbeController::onVehicleMavlink(const mavlink_message_t &message)
 {
+    if (message.msgid == MAVLINK_MSG_ID_PARAM_VALUE && _compassRequestPending) {
+        mavlink_param_value_t param{};
+        mavlink_msg_param_value_decode(&message, &param);
+        const QByteArray rawName(param.param_id, sizeof(param.param_id));
+        const int nul = rawName.indexOf(char(0));
+        const QString name = QString::fromLatin1(nul >= 0 ? rawName.left(nul) : rawName);
+        if (name.startsWith(QStringLiteral("COMPASS_DEV_ID")) ||
+            name.startsWith(QStringLiteral("COMPASS_EXTERN")) ||
+            name.startsWith(QStringLiteral("COMPASS_USE"))) {
+            _compassReceivedNames.insert(name);
+            _compassParameterValues.insert(name, double(param.param_value));
+            evaluateExternalCompass();
+        }
+        return;
+    }
     if (message.msgid != MAVLINK_MSG_ID_NAMED_VALUE_INT) return;
     mavlink_named_value_int_t info{};
     mavlink_msg_named_value_int_decode(&message, &info);
