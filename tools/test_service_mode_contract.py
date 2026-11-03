@@ -125,13 +125,14 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("ScrollBar.vertical.policy: ScrollBar.AlwaysOn", self.mavlink)
         self.assertIn("messagePanelMinHeight: mavlinkStatusScroll.availableHeight", self.mavlink)
 
-    def test_service_mavlink_status_refreshes_every_five_seconds(self):
+    def test_service_mavlink_status_uses_instant_vehicle_events(self):
         self.assertNotIn('text: "MAVLink Status"', self.service)
         self.assertIn("showPersistentMavlinkStatus", self.feature_patch)
         self.assertIn("ServiceMavlinkStatus.qml", self.feature_patch)
-        self.assertIn("interval: 5000", self.mavlink)
-        self.assertIn("messageFontPointSize: ScreenTools.defaultFontPointSize", self.mavlink)
-        self.assertIn("refreshMessages()", self.mavlink)
+        self.assertIn("newFormattedMessage", self.feature_patch)
+        self.assertNotIn("interval: 5000", self.mavlink)
+        self.assertNotIn('text: "Оновити"', self.mavlink)
+        self.assertIn("VehicleMessageList {", self.mavlink)
 
     def test_service_mode_has_no_meme_or_entry_tune_and_shows_module_health(self):
         self.assertNotIn('text: "Мемне"', self.service)
