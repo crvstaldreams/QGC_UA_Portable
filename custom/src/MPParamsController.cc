@@ -272,6 +272,12 @@ MPParamsController::MPParamsController(QObject* parent)
 {
     _loadFavorites();
 
+    _tableRefreshTimer.setInterval(180);
+    _tableRefreshTimer.setSingleShot(true);
+    connect(&_tableRefreshTimer, &QTimer::timeout, this, [this]() {
+        _rebuildTable();
+    });
+
     MultiVehicleManager* const manager = MultiVehicleManager::instance();
     connect(manager, &MultiVehicleManager::activeVehicleChanged, this, [this](Vehicle* vehicle) {
         _attachVehicle(vehicle);
@@ -281,6 +287,11 @@ MPParamsController::MPParamsController(QObject* parent)
 
 void MPParamsController::_attachVehicle(Vehicle* vehicle)
 {
+    _tableRefreshTimer.stop();
+    for (Fact* fact : _observedFacts) {
+        if (fact) disconnect(fact, nullptr, this, nullptr);
+    }
+    _observedFacts.clear();
     if (_parameterManager) {
         disconnect(_parameterManager, nullptr, this, nullptr);
     }
@@ -475,6 +486,15 @@ void MPParamsController::_rebuildTable()
         Fact* fact = _factForName(name);
         if (!fact) {
             continue;
+        }
+        if (!_observedFacts.contains(fact)) {
+            _observedFacts.insert(fact);
+            connect(fact, &Fact::rawValueChanged, this, [this](const QVariant&) {
+                _tableRefreshTimer.start();
+            });
+            connect(fact, &Fact::vehicleUpdated, this, [this](const QVariant&) {
+                _tableRefreshTimer.start();
+            });
         }
 
         const QString current = fact->rawValueStringFullPrecision();
