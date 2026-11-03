@@ -52,6 +52,11 @@ Rectangle {
             }
             RowLayout {
                 QGCButton {
+                    text: "Запит обох"
+                    enabled: !!root.vehicle && !root.vehicle.armed && !uartProbe.busy
+                    onClicked: uartProbe.probeAll()
+                }
+                QGCButton {
                     text: "Запит GPS1"
                     enabled: !!root.vehicle && !root.vehicle.armed && !uartProbe.busy
                     onClicked: uartProbe.probeGps(1)
@@ -183,11 +188,15 @@ Rectangle {
             }
         }
         ToolButton {
-            text: "UART"
-            Layout.preferredWidth: 54
-            onClicked: uartProbePopup.open()
+            text: "ЗАПИТ СТАНУ"
+            Layout.preferredWidth: 124
+            enabled: !!root.vehicle && !root.vehicle.armed && !uartProbe.busy
+            onClicked: {
+                uartProbePopup.open()
+                uartProbe.probeAll()
+            }
             ToolTip.visible: hovered
-            ToolTip.text: "Ручний UBX-MON-VER запит через MAVLink SERIAL_CONTROL"
+            ToolTip.text: "Разове ручне опитування GPS1 і GPS2 через MAVLink UART (UBX-MON-VER); тільки роззброєний борт"
         }
         ToolButton {
             text: "⇄"
