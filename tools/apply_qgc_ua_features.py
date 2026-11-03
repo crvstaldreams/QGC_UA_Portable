@@ -198,7 +198,7 @@ def patch_vehicle_message_list(root: Path) -> Path:
             marker
             + "    property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle\n"
             + "    property real messagePanelWidth: ScreenTools.defaultFontPixelWidth * 50\n"
-            + "    property real messagePanelMinHeight: 0\n"
+            + "    property real messagePanelMinHeight: 0\n"            + "    property bool showClearButton: true\n"
         )
         text = replace_once(text, marker, replacement, "MAVLink Status reusable properties")
 
@@ -225,6 +225,13 @@ def patch_vehicle_message_list(root: Path) -> Path:
     }
 '''
     text = replace_once(text, old_completed, new_completed, "MAVLink Status refresh API")
+
+    text = replace_once(
+        text,
+        "        visible:                    !noMessages\\n",
+        "        visible:                    !noMessages && showClearButton\\n",
+        "optional hide clear button for message-only status window",
+    )
 
     # Guard clear action when no vehicle is present.
     text = text.replace(
@@ -613,7 +620,7 @@ def patch_service_mode_menu(root: Path) -> Path:
             Loader {
                 anchors.fill: parent
                 anchors.margins: 12
-                anchors.topMargin: 44
+                anchors.topMargin: 38
                 source: "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml"
             }
             QGCButton {
@@ -658,6 +665,51 @@ def patch_service_mode_menu(root: Path) -> Path:
             text: "GNSS ZED / NEO / COMPASS: завантаження індикаторів"
             color: "#FFD400"
             font.pixelSize: 13
+        }
+    }
+
+    Rectangle {
+        id: argnGnssIdPanel
+        parent: mainWindow.contentItem
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: ScreenTools.toolbarHeight + 12
+        anchors.rightMargin: 188
+        width: Math.min(400, Math.max(260, parent.width * 0.26))
+        height: gnssIdColumn.implicitHeight + 16
+        z: 999999
+        radius: 8
+        color: "#D9111111"
+        border.color: "#665E00"
+        visible: flyView.visible && !toolDrawer.visible
+
+        Column {
+            id: gnssIdColumn
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.margins: 8
+            spacing: 4
+            Text {
+                text: "GNSS MODULE ID"
+                color: "#FFD400"
+                font.bold: true
+                font.pixelSize: 13
+            }
+            Text {
+                width: parent.width
+                text: "ZED  " + (argnModuleIndicators.item ? argnModuleIndicators.item.zedIdInfo : "Очікування даних")
+                color: "#F2F2F2"
+                font.pixelSize: 12
+                elide: Text.ElideRight
+            }
+            Text {
+                width: parent.width
+                text: "NEO  " + (argnModuleIndicators.item ? argnModuleIndicators.item.neoIdInfo : "Очікування даних")
+                color: "#F2F2F2"
+                font.pixelSize: 12
+                elide: Text.ElideRight
+            }
         }
     }
 
@@ -835,7 +887,7 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
 
             QGCToolBarButton {
                 height: parent.height
-                text: "MAVLink Status"
+                icon.source: "/InstrumentValueIcons/notifications.svg"
                 onClicked: mainWindow.showPersistentMavlinkStatus()
                 ToolTip.visible: hovered
                 ToolTip.text: qsTr("Open MAVLink Status (no auto-close)")
