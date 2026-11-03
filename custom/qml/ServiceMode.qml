@@ -13,12 +13,6 @@ Rectangle {
 
     property var activeVehicle: QGroundControl.multiVehicleManager.activeVehicle
 
-    // Trigger only when the service page is created; never loop on telemetry updates.
-    Component.onCompleted: {
-        if (activeVehicle && !activeVehicle.armed) {
-            activeVehicle.playServiceEntryTune()
-        }
-    }
     property string currentPage: "summary"
     property bool parametersReady: QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable &&
                                    activeVehicle &&
@@ -86,16 +80,8 @@ Rectangle {
         currentPage = "servoSafety"
     }
 
-    function showMavlinkStatus() {
-        currentPage = "mavlinkStatus"
-    }
-
     function showMPParams() {
         currentPage = "mpParams"
-    }
-
-    function showMeme() {
-        currentPage = "meme"
     }
 
     function reconnectVehicle() {
@@ -134,14 +120,8 @@ Rectangle {
         if (currentPage === "servoSafety") {
             return parametersReady ? "qrc:/qml/QGroundControl/Custom/ServiceServoSafety.qml" : ""
         }
-        if (currentPage === "mavlinkStatus") {
-            return activeVehicle ? "qrc:/qml/QGroundControl/Custom/ServiceMavlinkStatus.qml" : ""
-        }
         if (currentPage === "mpParams") {
             return "qrc:/qml/QGroundControl/Custom/ServiceMPParams.qml"
-        }
-        if (currentPage === "meme") {
-            return "qrc:/qml/QGroundControl/Custom/ServiceMeme.qml"
         }
         if (currentPage === "summary") {
             return activeVehicle ? "qrc:/qml/QGroundControl/VehicleSetup/VehicleSummary.qml" : ""
@@ -254,24 +234,9 @@ Rectangle {
 
                 QGCButton {
                     Layout.fillWidth: true
-                    text: "MAVLink Status"
-                    checked: currentPage === "mavlinkStatus"
-                    enabled: !!activeVehicle
-                    onClicked: showMavlinkStatus()
-                }
-
-                QGCButton {
-                    Layout.fillWidth: true
                     text: "MP Params"
                     checked: currentPage === "mpParams"
                     onClicked: showMPParams()
-                }
-
-                QGCButton {
-                    Layout.fillWidth: true
-                    text: "Мемне"
-                    checked: currentPage === "meme"
-                    onClicked: showMeme()
                 }
 
                 QGCButton {
