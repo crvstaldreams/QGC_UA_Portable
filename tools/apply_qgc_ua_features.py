@@ -238,6 +238,40 @@ def patch_vehicle_message_list(root: Path) -> Path:
         "optional hide clear button for message-only status window",
     )
 
+    # The floating MAVLink log uses larger text and an extra blank line
+    # between entries. Other QGC message widgets retain their normal styling.
+    prop_marker = "    property real messagePanelMinHeight: 0\\n"
+    text = replace_once(
+        text,
+        prop_marker,
+        prop_marker
+        + "    property bool spaciousMessages: false\\n"
+        + "    property bool followNewest: false\\n",
+        "custom MAVLink message display options",
+    )
+    fmt_marker = "        return message;\\n    }\\n"
+    text = replace_once(
+        text,
+        fmt_marker,
+        '        if (spaciousMessages) {\\n'
+        '            message = message.replace(/<br\\\\s*\\\\/?>/gi, "<br/><br/>")\\n'
+        '        }\\n'
+        '        return message;\\n    }\\n',
+        "MAVLink message paragraph spacing",
+    )
+    text = replace_once(
+        text,
+        '        onNewFormattedMessage: (formattedMessage) => { messageText.insert(0, formatMessage(formattedMessage)) }\\n',
+        '        onNewFormattedMessage: (formattedMessage) => {\\n'
+        '            messageText.insert(0, formatMessage(formattedMessage))\\n'
+        '            if (followNewest) {\\n'
+        '                messageText.cursorPosition = 0\\n'
+        '                messageText.deselect()\\n'
+        '            }\\n'
+        '        }\\n',
+        "instant latest-first MAVLink message focus",
+    )
+
     # Guard clear action when no vehicle is present.
     text = text.replace(
         "                activeVehicle.clearMessages()\n                mainWindow.closeIndicatorDrawer()\n",
