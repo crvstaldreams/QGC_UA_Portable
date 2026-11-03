@@ -30,13 +30,20 @@ Rectangle {
         ? probeLoader.item.neoInfo : "UART діагностика недоступна"
 
     function receiverHealth(which) {
-        if (!vehicle) return 0
-        if (!probeLoader.item) return 1
-        if (which === "ZED" && probeLoader.item.zedVerified) return 2
-        if (which === "NEO" && probeLoader.item.neoVerified) return 2
-        if (which === "ZED" && probeLoader.item.zedResponded) return 1
-        if (which === "NEO" && probeLoader.item.neoResponded) return 1
-        return probeLoader.item.scanComplete ? 0 : 1
+        // No scan = black. While the requested receiver is being queried =
+        // yellow. A valid UBX reply = green, even without GPS Fix.
+        if (!vehicle || !probeLoader.item || !probeLoader.item.scanStarted) return 0
+        if (probeLoader.item.busy) return 1
+        if (which === "ZED") return probeLoader.item.zedVerified ? 2 : 0
+        return probeLoader.item.neoVerified ? 2 : 0
+    }
+    function externalCompassHealth() {
+        if (!vehicle || !probeLoader.item) return 0
+        return probeLoader.item.externalCompassState
+    }
+    function fcCompassHealth() {
+        if (!vehicle || !probeLoader.item) return 0
+        return probeLoader.item.fcCompassState
     }
     function syncHealth() {
         // The two PPS/LED phases are not present in standard MAVLink GNSS
@@ -110,12 +117,21 @@ Rectangle {
         }
         RowLayout {
             spacing: 5
-            readonly property int health: root.compassHealth()
+            readonly property int health: root.fcCompassHealth()
             Rectangle { width: 13; height: 13; radius: 7; color: root.statusColor(parent.health); border.color: "#9A9A9A" }
-            Text { text: "COMPASS"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
-            HoverHandler { id: compassHover }
-            ToolTip.visible: compassHover.hovered
-            ToolTip.text: "Загальний MAVLink MAG health; зовнішній компас окремо не ідентифіковано"
+            Text { text: "FC COMPASS"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
+            HoverHandler { id: fcHover }
+            ToolTip.visible: fcHover.hovered
+            ToolTip.text: probeLoader.item ? probeLoader.item.fcCompassInfo : "Очікування MAVLink"
+        }
+        RowLayout {
+            spacing: 5
+            readonly property int health: root.externalCompassHealth()
+            Rectangle { width: 13; height: 13; radius: 7; color: root.statusColor(parent.health); border.color: "#9A9A9A" }
+            Text { text: "Q/F9P COMPASS"; color: "#FFFFFF"; font.bold: true; font.pixelSize: 13 }
+            HoverHandler { id: extHover }
+            ToolTip.visible: extHover.hovered
+            ToolTip.text: probeLoader.item ? probeLoader.item.externalCompassInfo : "Не опитано"
         }
         RowLayout {
             spacing: 5
@@ -131,11 +147,11 @@ Rectangle {
 
         Button {
             text: "ЗАПИТ СТАНУ"
-            Layout.preferredWidth: 135
+            Layout.preferredWidth: 138
             enabled: !!root.vehicle && !root.vehicle.armed && probeLoader.item && !probeLoader.item.busy
             onClicked: probeLoader.item.requestAll()
             ToolTip.visible: hovered
-            ToolTip.text: "Послідовний запит ZED і NEO через один UART GPS1 або GPS2, без вимоги GPS Fix"
+            ToolTip.text: "Послідовний запит ZED/NEO через один UART і незалежний PARAM_REQUEST_READ зовнішнього компаса"
         }
     }
 }
