@@ -17,6 +17,11 @@ Rectangle {
     property var vehicle: QGroundControl.multiVehicleManager.activeVehicle
     property int secondsConnected: 0
     property bool ready: !!vehicle && QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable
+    // Raw GNSS identification comes only from manually received UBX-MON-VER.
+    // GPS1/GPS2-to-ZED/NEO assignment remains user-selectable.
+    readonly property string zedIdInfo: moduleSettings.swapped ? uartProbe.gps2Info : uartProbe.gps1Info
+    readonly property string neoIdInfo: moduleSettings.swapped ? uartProbe.gps1Info : uartProbe.gps2Info
+
 
     Settings {
         id: moduleSettings
