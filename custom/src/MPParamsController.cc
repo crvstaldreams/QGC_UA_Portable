@@ -499,6 +499,25 @@ void MPParamsController::_rebuildTable()
     emit parameterCountChanged();
 }
 
+void MPParamsController::refreshSelected(const QStringList& names)
+{
+    if (!_parameterManager || !_parameterManager->parametersReady()) return;
+    for (const QString& name : names) {
+        if (_parameterManager->parameterExists(-1, name)) {
+            _parameterManager->refreshParameter(-1, name);
+        }
+    }
+}
+
+void MPParamsController::refreshServoOutputs()
+{
+    QStringList names { QStringLiteral("BRD_SAFETY_MASK") };
+    for (int i = 1; i <= 16; ++i) {
+        names << QStringLiteral("SERVO%1_FUNCTION").arg(i);
+    }
+    refreshSelected(names);
+}
+
 void MPParamsController::refresh()
 {
     if (!_parameterManager) {
