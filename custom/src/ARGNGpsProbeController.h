@@ -6,6 +6,8 @@
 #include <QtCore/QElapsedTimer>
 #include <QtCore/QByteArray>
 #include <QtCore/QString>
+#include <QtCore/QHash>
+#include <QtCore/QSet>
 #include <cstdint>
 #include "Vehicle.h"
 
@@ -27,6 +29,10 @@ class ARGNGpsProbeController : public QObject
     Q_PROPERTY(bool zedResponded READ zedResponded NOTIFY statusChanged)
     Q_PROPERTY(bool neoResponded READ neoResponded NOTIFY statusChanged)
     Q_PROPERTY(int syncState READ syncState NOTIFY statusChanged)
+    Q_PROPERTY(int externalCompassState READ externalCompassState NOTIFY statusChanged)
+    Q_PROPERTY(QString externalCompassInfo READ externalCompassInfo NOTIFY statusChanged)
+    Q_PROPERTY(int fcCompassState READ fcCompassState NOTIFY statusChanged)
+    Q_PROPERTY(QString fcCompassInfo READ fcCompassInfo NOTIFY statusChanged)
 
 public:
     explicit ARGNGpsProbeController(QObject *parent = nullptr);
@@ -46,10 +52,15 @@ public:
     bool zedResponded() const { return _zedResponded; }
     bool neoResponded() const { return _neoResponded; }
     int syncState() const; // 0 disconnected, 1 waiting, 2 measured sync, 3 measured fault
+    int externalCompassState() const { return _externalCompassState; }
+    QString externalCompassInfo() const { return _externalCompassInfo; }
+    int fcCompassState() const;
+    QString fcCompassInfo() const;
 
     Q_INVOKABLE void probeGps(int port); // 1=GPS1, 2=GPS2; disarmed only
     Q_INVOKABLE void probeAll(); // Legacy individual-port probing
     Q_INVOKABLE void probeDual(); // Both GNSS receivers on one physical UART
+    Q_INVOKABLE void requestExternalCompass(); // independent ArduPilot parameter check
     Q_INVOKABLE void probeDualPort(int port); // Choose GPS1/GPS2 explicitly
     Q_INVOKABLE void cancel();
 
@@ -63,6 +74,7 @@ private:
                          uint32_t baudrate, QByteArray data);
     void poll();
     void onVehicleMavlink(const mavlink_message_t &message);
+    void evaluateExternalCompass();
     void complete(const QString &message);
     void release();
     void startDualPort(int port);
@@ -76,6 +88,12 @@ private:
     QTimer _syncUpdateTimer;
     QElapsedTimer _syncLastMessage;
     int _syncReported = -1;
+    int _externalCompassState = 0;
+    QString _externalCompassInfo = QStringLiteral("Не опитано");
+    bool _compassRequestPending = false;
+    quint32 _compassRequestGeneration = 0;
+    QHash<QString, double> _compassParameterValues;
+    QSet<QString> _compassReceivedNames;
     QByteArray _buffer;
     QString _gps1Info = QStringLiteral("Не опитано");
     QString _gps2Info = QStringLiteral("Не опитано");
