@@ -116,6 +116,8 @@ private:
     int _dualPolls = 0;
     int _dualOriginalSelector = 1;
     bool _dualOriginalKnown = false;
+    bool _dualSelectorTouched = false;
+    QString _dualBaselineInfo;
     QString _activePort = QStringLiteral("Не визначено");
     QString _zedInfo = QStringLiteral("Не перевірено");
     QString _neoInfo = QStringLiteral("Не перевірено");
