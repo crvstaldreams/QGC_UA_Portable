@@ -32,6 +32,7 @@ Rectangle {
             activeVehicle: root.activeVehicle
             messagePanelWidth: mavlinkStatusScroll.availableWidth
             messagePanelMinHeight: mavlinkStatusScroll.availableHeight
+            showClearButton: false
         }
     }
 }
