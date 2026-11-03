@@ -48,7 +48,6 @@ Rectangle {
             showClearButton: false
             messageFontPointSize: Math.max(2, ScreenTools.defaultFontPointSize * 1.5)
             spaciousMessages: false
-            compactMessages: true
             followNewest: true
             font.pointSize: messageFontPointSize
         }
