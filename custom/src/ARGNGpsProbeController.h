@@ -24,6 +24,8 @@ class ARGNGpsProbeController : public QObject
     Q_PROPERTY(QString activePort READ activePort NOTIFY statusChanged)
     Q_PROPERTY(bool zedVerified READ zedVerified NOTIFY statusChanged)
     Q_PROPERTY(bool neoVerified READ neoVerified NOTIFY statusChanged)
+    Q_PROPERTY(bool zedResponded READ zedResponded NOTIFY statusChanged)
+    Q_PROPERTY(bool neoResponded READ neoResponded NOTIFY statusChanged)
     Q_PROPERTY(int syncState READ syncState NOTIFY statusChanged)
 
 public:
@@ -41,6 +43,8 @@ public:
     QString activePort() const { return _activePort; }
     bool zedVerified() const { return _zedVerified; }
     bool neoVerified() const { return _neoVerified; }
+    bool zedResponded() const { return _zedResponded; }
+    bool neoResponded() const { return _neoResponded; }
     int syncState() const; // 0 disconnected, 1 waiting, 2 measured sync, 3 measured fault
 
     Q_INVOKABLE void probeGps(int port); // 1=GPS1, 2=GPS2; disarmed only
@@ -88,6 +92,8 @@ private:
     bool _dualUniqueIdReceived = false;
     bool _zedVerified = false;
     bool _neoVerified = false;
+    bool _zedResponded = false;
+    bool _neoResponded = false;
     int _dualReceiver = 0; // 1 ZED, 2 NEO
     int _dualPolls = 0;
     int _dualOriginalSelector = 1;
