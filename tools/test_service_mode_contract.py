@@ -29,7 +29,7 @@ class ServiceModeContractTest(unittest.TestCase):
         cls.feature_patch = FEATURE_PATCH.read_text(encoding="utf-8")
 
     def test_only_required_service_sections_are_exposed(self):
-        for label in ("Огляд", "Карта", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "MAVLink Status", "Реконнект"):
+        for label in ("Огляд", "Карта", "Прошивка", "Параметри", "MP Params", "Датчики", "Servo/Saf.Mask", "Реконнект"):
             self.assertIn(f'text: "{label}"', self.service)
 
     def test_service_mode_imports_flightmap_widgets(self):
@@ -126,10 +126,20 @@ class ServiceModeContractTest(unittest.TestCase):
         self.assertIn("messagePanelMinHeight: mavlinkStatusScroll.availableHeight", self.mavlink)
 
     def test_service_mavlink_status_refreshes_every_five_seconds(self):
-        self.assertIn("ServiceMavlinkStatus.qml", self.service)
+        self.assertNotIn('text: "MAVLink Status"', self.service)
+        self.assertIn("showPersistentMavlinkStatus", self.feature_patch)
+        self.assertIn("ServiceMavlinkStatus.qml", self.feature_patch)
         self.assertIn("interval: 5000", self.mavlink)
         self.assertIn("messageFontPointSize: ScreenTools.defaultFontPointSize", self.mavlink)
         self.assertIn("refreshMessages()", self.mavlink)
+
+    def test_service_mode_has_no_meme_or_entry_tune_and_shows_module_health(self):
+        self.assertNotIn('text: "Мемне"', self.service)
+        self.assertNotIn("playServiceEntryTune()", self.service)
+        self.assertIn("ARGNModuleIndicators.qml", self.feature_patch)
+        self.assertIn("MAVLink Status", self.feature_patch)
+        self.assertIn("Popup.CloseOnEscape", self.feature_patch)
+        self.assertNotIn("CloseOnPressOutside", self.feature_patch)
 
     def test_servo_safety_page_is_registered_in_service_mode(self):
         self.assertIn("ServiceServoSafety.qml", self.service)
