@@ -862,6 +862,14 @@ def patch_quick_vehicle_toolbar(root: Path) -> list[Path]:
 
             QGCToolBarButton {
                 height: parent.height
+                text: "MAVLink Status"
+                onClicked: mainWindow.showPersistentMavlinkStatus()
+                ToolTip.visible: hovered
+                ToolTip.text: qsTr("Open MAVLink Status (no auto-close)")
+            }
+
+            QGCToolBarButton {
+                height: parent.height
                 visible: QGroundControl.multiVehicleManager.parameterReadyVehicleAvailable &&
                          QGroundControl.corePlugin.showAdvancedUI
                 icon.source: "/qmlimages/subMenuButtonImage.png"
