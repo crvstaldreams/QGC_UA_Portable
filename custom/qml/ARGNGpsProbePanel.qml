@@ -13,6 +13,8 @@ Item {
     readonly property bool busy: gnssProbe.busy
     readonly property bool zedVerified: gnssProbe.zedVerified
     readonly property bool neoVerified: gnssProbe.neoVerified
+    readonly property bool zedResponded: gnssProbe.zedResponded
+    readonly property bool neoResponded: gnssProbe.neoResponded
     readonly property string zedInfo: gnssProbe.zedInfo
     readonly property string neoInfo: gnssProbe.neoInfo
     readonly property string activePort: gnssProbe.activePort
