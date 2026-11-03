@@ -202,6 +202,11 @@ def patch_vehicle_message_list(root: Path) -> Path:
         )
         text = replace_once(text, marker, replacement, "MAVLink Status reusable properties")
 
+    # Native VehicleMessageList reacts to onNewFormattedMessage immediately.
+    # Verify this event hook remains available (no polling required).
+    if "onNewFormattedMessage" not in text:
+        raise FeaturePatchError("VehicleMessageList newFormattedMessage listener missing")
+
     # The stock component depends on an outer _activeVehicle property. Make it
     # self-contained so it can be reused from the service-mode MAVLink page.
     text = text.replace("_activeVehicle", "activeVehicle")
