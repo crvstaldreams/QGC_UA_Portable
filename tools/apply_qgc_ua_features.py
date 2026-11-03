@@ -680,7 +680,7 @@ def patch_service_mode_menu(root: Path) -> Path:
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 16
-        width: Math.min(580, parent.width - 16)
+        width: Math.min(825, parent.width - 16)
         height: 50
         radius: 8
         color: "#141414"
