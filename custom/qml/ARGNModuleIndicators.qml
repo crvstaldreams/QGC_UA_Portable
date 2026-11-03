@@ -34,6 +34,8 @@ Rectangle {
         if (!probeLoader.item) return 1
         if (which === "ZED" && probeLoader.item.zedVerified) return 2
         if (which === "NEO" && probeLoader.item.neoVerified) return 2
+        if (which === "ZED" && probeLoader.item.zedResponded) return 1
+        if (which === "NEO" && probeLoader.item.neoResponded) return 1
         return probeLoader.item.scanComplete ? 0 : 1
     }
     function syncHealth() {
