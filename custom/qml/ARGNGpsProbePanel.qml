@@ -16,6 +16,7 @@ Item {
     readonly property string zedInfo: gnssProbe.zedInfo
     readonly property string neoInfo: gnssProbe.neoInfo
     readonly property string activePort: gnssProbe.activePort
+    readonly property int syncState: gnssProbe.syncState
     readonly property bool scanComplete: !gnssProbe.busy &&
         (gnssProbe.zedInfo !== "Не перевірено" || gnssProbe.neoInfo !== "Не перевірено")
 
@@ -65,7 +66,7 @@ Item {
             Text { Layout.fillWidth: true; text: "NEO: " + gnssProbe.neoInfo; wrapMode: Text.WrapAnywhere; font.pixelSize: 12; color: "#FFFFFF" }
             Text {
                 Layout.fillWidth: true
-                text: "SYNC: немає даних про фази LED / 1PPS у MAVLink; стан не підтверджено"
+                text: "SYNC: зелений лише за зовнішнім MAVLink GNSS_SYNC=1 (контроль обох PPS/LED); без цього — очікуємо дані"
                 font.pixelSize: 12; wrapMode: Text.WordWrap; color: "#E5BC35"
             }
             Text { Layout.fillWidth: true; text: gnssProbe.statusText; wrapMode: Text.WordWrap; font.pixelSize: 12; color: "#F0D363" }
