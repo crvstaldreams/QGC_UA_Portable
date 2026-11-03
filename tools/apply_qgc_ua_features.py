@@ -233,8 +233,8 @@ def patch_vehicle_message_list(root: Path) -> Path:
 
     text = replace_once(
         text,
-        "        visible:                    !noMessages\\n",
-        "        visible:                    !noMessages && showClearButton\\n",
+        "        visible:                    !noMessages\n",
+        "        visible:                    !noMessages && showClearButton\n",
         "optional hide clear button for message-only status window",
     )
 
