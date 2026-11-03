@@ -18,6 +18,11 @@ class ARGNGpsProbeController : public QObject
     Q_PROPERTY(QString gps1Info READ gps1Info NOTIFY statusChanged)
     Q_PROPERTY(QString gps2Info READ gps2Info NOTIFY statusChanged)
     Q_PROPERTY(QString statusText READ statusText NOTIFY statusChanged)
+    Q_PROPERTY(QString zedInfo READ zedInfo NOTIFY statusChanged)
+    Q_PROPERTY(QString neoInfo READ neoInfo NOTIFY statusChanged)
+    Q_PROPERTY(QString activePort READ activePort NOTIFY statusChanged)
+    Q_PROPERTY(bool zedVerified READ zedVerified NOTIFY statusChanged)
+    Q_PROPERTY(bool neoVerified READ neoVerified NOTIFY statusChanged)
 
 public:
     explicit ARGNGpsProbeController(QObject *parent = nullptr);
@@ -29,9 +34,16 @@ public:
     QString gps1Info() const { return _gps1Info; }
     QString gps2Info() const { return _gps2Info; }
     QString statusText() const { return _statusText; }
+    QString zedInfo() const { return _zedInfo; }
+    QString neoInfo() const { return _neoInfo; }
+    QString activePort() const { return _activePort; }
+    bool zedVerified() const { return _zedVerified; }
+    bool neoVerified() const { return _neoVerified; }
 
     Q_INVOKABLE void probeGps(int port); // 1=GPS1, 2=GPS2; disarmed only
-    Q_INVOKABLE void probeAll(); // Sequential GPS1 then GPS2 request
+    Q_INVOKABLE void probeAll(); // Legacy individual-port probing
+    Q_INVOKABLE void probeDual(); // Both GNSS receivers on one physical UART
+    Q_INVOKABLE void probeDualPort(int port); // Choose GPS1/GPS2 explicitly
     Q_INVOKABLE void cancel();
 
 signals:
@@ -45,6 +57,11 @@ private:
     void poll();
     void complete(const QString &message);
     void release();
+    void startDualPort(int port);
+    void beginDualReceiver(int selector);
+    void beginDualRead();
+    void advanceDual(bool timedOut);
+    void finishDual();
 
     QPointer<Vehicle> _vehicle;
     QTimer _timer;
@@ -57,4 +74,20 @@ private:
     bool _busy = false;
     bool _probeAll = false;
     bool _nextGpsPending = false;
+    bool _dualMode = false;
+    bool _dualRetryOtherPort = false;
+    bool _dualAnyResponse = false;
+    bool _dualMonVer = false;
+    bool _dualUniqueIdReceived = false;
+    bool _zedVerified = false;
+    bool _neoVerified = false;
+    int _dualReceiver = 0; // 1 ZED, 2 NEO
+    int _dualPolls = 0;
+    QString _activePort = QStringLiteral("Не визначено");
+    QString _zedInfo = QStringLiteral("Не перевірено");
+    QString _neoInfo = QStringLiteral("Не перевірено");
+    QString _dualVersion;
+    QString _dualUniqueId;
+    QString _zedUniqueId;
+    QString _neoUniqueId;
 };
