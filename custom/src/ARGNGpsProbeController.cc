@@ -406,8 +406,10 @@ void ARGNGpsProbeController::advanceDual(bool)
         _dualBaselineInfo = _dualVersion;
         // Identify the selected silicon from its own UBX-MON-VER identity,
         // rather than trying to read a proprietary selector with CFG-VALGET.
-        const bool zedSelected = _dualVersion.contains(QStringLiteral("MOD=ZED-F9P"), Qt::CaseInsensitive);
-        const bool neoSelected = _dualVersion.contains(QStringLiteral("MOD=NEO-F9P"), Qt::CaseInsensitive);
+        const bool zedSelected = _dualVersion.contains(QStringLiteral("MOD=ZED-F9P"), Qt::CaseInsensitive) ||
+            _dualVersion.contains(QStringLiteral("NAV_F9P_04b"), Qt::CaseInsensitive);
+        const bool neoSelected = _dualVersion.contains(QStringLiteral("MOD=NEO-F9P"), Qt::CaseInsensitive) ||
+            _dualVersion.contains(QStringLiteral("NAV_F9P_15b"), Qt::CaseInsensitive);
         if (!zedSelected && !neoSelected) {
             _statusText = QStringLiteral("%1: MON-VER OK, проте MOD не визначає ZED/NEO. "
                 "Другий приймач не перемикаємо; початковий стан збережено.").arg(_activePort);
@@ -434,9 +436,13 @@ void ARGNGpsProbeController::advanceDual(bool)
         return;
     }
     const QString name = _dualReceiver == 1 ? QStringLiteral("ZED") : QStringLiteral("NEO");
-    const bool expectedModel = _dualMonVer && _dualVersion.contains(
-        _dualReceiver == 1 ? QStringLiteral("MOD=ZED-F9P") : QStringLiteral("MOD=NEO-F9P"),
-        Qt::CaseInsensitive);
+    const bool expectedModel = _dualMonVer &&
+        (_dualVersion.contains(
+             _dualReceiver == 1 ? QStringLiteral("MOD=ZED-F9P") : QStringLiteral("MOD=NEO-F9P"),
+             Qt::CaseInsensitive) ||
+         _dualVersion.contains(
+             _dualReceiver == 1 ? QStringLiteral("NAV_F9P_04b") : QStringLiteral("NAV_F9P_15b"),
+             Qt::CaseInsensitive));
     QString result;
     if (_dualMonVer) {
         result = _dualUniqueIdReceived
