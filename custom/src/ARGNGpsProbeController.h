@@ -114,6 +114,9 @@ private:
     bool _neoResponded = false;
     int _dualReceiver = 0; // 1 ZED, 2 NEO
     int _dualPolls = 0;
+    int _dualRetryCount = 0;
+    bool _dualSwitchAck = false;
+    bool _dualSwitchNak = false;
     int _dualOriginalSelector = 1;
     bool _dualOriginalKnown = false;
     bool _dualSelectorTouched = false;
