@@ -353,6 +353,9 @@ void ARGNGpsProbeController::beginDualReceiver(int selector)
     _timer.stop();
     _dualReceiver = selector;
     _dualPolls = 0;
+    _dualRetryCount = 0;
+    _dualSwitchAck = false;
+    _dualSwitchNak = false;
     _dualVersion.clear();
     _dualUniqueId.clear();
     _dualMonVer = false;
@@ -367,8 +370,11 @@ void ARGNGpsProbeController::beginDualReceiver(int selector)
         ? QByteArray::fromHex("b562068a090000010000010010ac0158bf")
         : QByteArray::fromHex("b562068a090000010000010010ac0259c0");
     _dualSelectorTouched = true;
-    sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE), selectorFrame, 0);
-    QTimer::singleShot(350, this, [this, selector]() {
+    // Preserve any UBX ACK/NAK from the switching controller.
+    sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
+               selectorFrame, 110);
+    // Allow the external controller and receiver UART to settle.
+    QTimer::singleShot(1100, this, [this, selector]() {
         if (_busy && _dualMode && _dualReceiver == selector) beginDualRead();
     });
 }
@@ -452,7 +458,12 @@ void ARGNGpsProbeController::advanceDual(bool)
                                  QStringLiteral("MON-VER: модель не збігається | ")) + _dualVersion;
         _dualAnyResponse = true;
     } else {
-        result = QStringLiteral("Немає відповіді UBX після вибору ") + name;
+        result = QStringLiteral("Відповідь UBX не отримано після вибору ") + name
+            + QStringLiteral(" (2 спроби, перевірте перемикання UART)");
+        if (_dualSwitchNak)
+            result += QStringLiteral("; команда вибору відхилена UBX-NAK");
+        else if (_dualSwitchAck)
+            result += QStringLiteral("; ACK вибору отримано");
     }
     if (_dualReceiver == 1) {
         _zedInfo = result;
@@ -579,10 +590,36 @@ void ARGNGpsProbeController::poll()
             cancel();
             return;
         }
-        if (++_dualPolls >= 13 ||
-            (_dualMonVer && _dualUniqueIdReceived) ||
-            (_dualMonVer && _dualPolls >= 6)) {
-            advanceDual(_dualPolls >= 13);
+        ++_dualPolls;
+        if (_dualMonVer && (_dualUniqueIdReceived || _dualPolls >= 9)) {
+            advanceDual(false);
+            return;
+        }
+        if (_dualPolls >= 30) {
+            // A silent receiver might need longer after STM32 switches the
+            // UART. Retry the same RAM-only selection once, not indefinitely.
+            if (_dualReceiver > 0 && _dualRetryCount < 1 && !_dualSwitchNak) {
+                ++_dualRetryCount;
+                _dualPolls = 0;
+                _buffer.clear();
+                _statusText = QStringLiteral("%1: немає відповіді після перемикання; "
+                    "повторний запит UART (2/2)…")
+                    .arg(_dualReceiver == 1 ? QStringLiteral("ZED") : QStringLiteral("NEO"));
+                emit statusChanged();
+                const QByteArray frame = _dualReceiver == 1
+                    ? QByteArray::fromHex("b562068a090000010000010010ac0158bf")
+                    : QByteArray::fromHex("b562068a090000010000010010ac0259c0");
+                sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
+                           frame, 110);
+                const int receiver = _dualReceiver;
+                _timer.stop();
+                QTimer::singleShot(1250, this, [this, receiver]() {
+                    if (_busy && _dualMode && _dualReceiver == receiver)
+                        beginDualRead();
+                });
+                return;
+            }
+            advanceDual(true);
             return;
         }
         sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
@@ -632,6 +669,11 @@ void ARGNGpsProbeController::onSerialControl(uint8_t device, uint8_t flags, uint
             const uint8_t cls = uint8_t(frame[2]);
             const uint8_t id = uint8_t(frame[3]);
             const QByteArray payload = frame.mid(6, size);
+            if (_dualReceiver > 0 && cls == 0x05 && size >= 2 &&
+                uint8_t(payload[0]) == 0x06 && uint8_t(payload[1]) == 0x8A) {
+                if (id == 0x01) _dualSwitchAck = true;
+                if (id == 0x00) _dualSwitchNak = true;
+            }
             if (_dualReceiver == 0 && cls == 0x06 && id == 0x8B &&
                 payload.size() >= 9 &&
                 payload.mid(4, 4) == QByteArray::fromHex("010010ac")) {
