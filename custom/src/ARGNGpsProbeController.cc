@@ -382,10 +382,10 @@ void ARGNGpsProbeController::beginDualRead()
     _buffer.clear();
     // MON-VER provides presence and firmware. SEC-UNIQID provides
     // a physically unique chip ID when supported by this firmware.
+    // Ask MON-VER first. Query optional UNIQID only after that reply;
+    // back-to-back SERIAL_CONTROL reads can swallow the following response.
     sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
                QByteArray::fromHex("b5620a0400000e34"), 70);
-    sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
-               QByteArray::fromHex("b562270300002a54"), 70);
     _timer.start();
 }
 
@@ -647,7 +647,11 @@ void ARGNGpsProbeController::onSerialControl(uint8_t device, uint8_t flags, uint
                     i += length;
                 }
                 _dualVersion = fields.join(QStringLiteral(" | "));
-                _dualMonVer = true;
+                if (!_dualMonVer) {
+                    _dualMonVer = true;
+                    sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
+                               QByteArray::fromHex("b562270300002a54"), 70);
+                }
             } else if (_dualReceiver != 0 && cls == 0x27 && id == 0x03 &&
                        size >= 9) {
                 _dualUniqueId = QString::fromLatin1(payload.right(5).toHex().toUpper());
