@@ -404,36 +404,46 @@ void ARGNGpsProbeController::advanceDual(bool)
         }
         _dualAnyResponse = true;
         _dualBaselineInfo = _dualVersion;
-        _statusText = QStringLiteral("%1: прямий MON-VER OK; читаємо RAM selector 0xAC100001…")
-            .arg(_activePort);
-        _dualReceiver = 0;
-        _dualPolls = 0;
-        _buffer.clear();
+        // Identify the selected silicon from its own UBX-MON-VER identity,
+        // rather than trying to read a proprietary selector with CFG-VALGET.
+        const bool zedSelected = _dualVersion.contains(QStringLiteral("MOD=ZED-F9P"), Qt::CaseInsensitive);
+        const bool neoSelected = _dualVersion.contains(QStringLiteral("MOD=NEO-F9P"), Qt::CaseInsensitive);
+        if (!zedSelected && !neoSelected) {
+            _statusText = QStringLiteral("%1: MON-VER OK, проте MOD не визначає ZED/NEO. "
+                "Другий приймач не перемикаємо; початковий стан збережено.").arg(_activePort);
+            _zedInfo = QStringLiteral("Прямий MON-VER: ") + _dualVersion;
+            _neoInfo = QStringLiteral("Не перевірено: немає підтвердження MOD");
+            finishDual();
+            return;
+        }
+        _dualOriginalSelector = zedSelected ? 1 : 2;
+        _dualOriginalKnown = true;
+        if (zedSelected) {
+            _zedInfo = QStringLiteral("MON-VER OK | ") + _dualVersion;
+            _zedResponded = true;
+            _zedVerified = true;
+        } else {
+            _neoInfo = QStringLiteral("MON-VER OK | ") + _dualVersion;
+            _neoResponded = true;
+            _neoVerified = true;
+        }
+        _statusText = QStringLiteral("%1: визначено %2, перевіряємо другий приймач.")
+            .arg(_activePort, zedSelected ? QStringLiteral("ZED") : QStringLiteral("NEO"));
         emit statusChanged();
-        sendSerial(uint8_t(SERIAL_CONTROL_FLAG_EXCLUSIVE | SERIAL_CONTROL_FLAG_RESPOND),
-                   QByteArray::fromHex("b562068b080000000000010010ac5661"), 80);
-        QTimer::singleShot(600, this, [this]() {
-            if (!_busy || !_dualMode || _dualReceiver != 0) return;
-            if (_dualOriginalKnown) {
-                beginDualReceiver(1);
-            } else {
-                _statusText = QStringLiteral("MON-VER відповів, але CFG-VALGET "
-                    "селектор не підтвердив. Перемикання заблоковано, "
-                    "щоб не змінити невідомий початковий стан.");
-                _zedInfo = QStringLiteral("Один F9P відповів; модель не визначено");
-                _neoInfo = QStringLiteral("Другий F9P не перевірено; селектор недоступний");
-                finishDual();
-            }
-        });
+        beginDualReceiver(zedSelected ? 2 : 1);
         return;
     }
     const QString name = _dualReceiver == 1 ? QStringLiteral("ZED") : QStringLiteral("NEO");
+    const bool expectedModel = _dualMonVer && _dualVersion.contains(
+        _dualReceiver == 1 ? QStringLiteral("MOD=ZED-F9P") : QStringLiteral("MOD=NEO-F9P"),
+        Qt::CaseInsensitive);
     QString result;
     if (_dualMonVer) {
         result = _dualUniqueIdReceived
             ? QStringLiteral("UID=") + _dualUniqueId + QStringLiteral(" | ")
             : QStringLiteral("UID недоступний | ");
-        result += QStringLiteral("MON-VER OK | ") + _dualVersion;
+        result += (expectedModel ? QStringLiteral("MON-VER OK | ") :
+                                 QStringLiteral("MON-VER: модель не збігається | ")) + _dualVersion;
         _dualAnyResponse = true;
     } else {
         result = QStringLiteral("Немає відповіді UBX після вибору ") + name;
@@ -442,16 +452,17 @@ void ARGNGpsProbeController::advanceDual(bool)
         _zedInfo = result;
         _zedUniqueId = _dualUniqueIdReceived ? _dualUniqueId : QString();
         _zedResponded = _dualMonVer;
-        _zedVerified = _dualMonVer;
+        _zedVerified = expectedModel;
         emit statusChanged();
-        beginDualReceiver(2);
+        if (_neoVerified) finishDual();
+        else beginDualReceiver(2);
         return;
     }
 
     _neoInfo = result;
     _neoUniqueId = _dualUniqueIdReceived ? _dualUniqueId : QString();
     _neoResponded = _dualMonVer;
-    _neoVerified = _dualMonVer;
+    _neoVerified = expectedModel;
     // A duplicated silicon ID means selection is not actually isolated:
     // do not claim two distinct working receivers.
     if (!_zedUniqueId.isEmpty() && !_neoUniqueId.isEmpty() &&
@@ -467,6 +478,12 @@ void ARGNGpsProbeController::advanceDual(bool)
 void ARGNGpsProbeController::finishDual()
 {
     _timer.stop();
+    if (!_zedUniqueId.isEmpty() && !_neoUniqueId.isEmpty() &&
+        _zedUniqueId == _neoUniqueId) {
+        _zedVerified = false;
+        _neoVerified = false;
+        _statusText = QStringLiteral("Однакові UID: не вдалося підтвердити два фізичні F9P");
+    }
     if (_dualSelectorTouched && _dualOriginalKnown && _device >= 0 && _vehicle && !_vehicle->armed()) {
         const int restore = _dualOriginalSelector;
         const QByteArray frame = restore == 2
